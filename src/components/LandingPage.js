@@ -11,21 +11,19 @@ export function LandingPage(activePanel = null, savedWorkspace = null) {
           ${
             savedWorkspace
               ? `
-                <article class="landing-card landing-card-continue">
-                  <button class="landing-card-button" type="button" data-continue-workspace>
+                <button class="landing-card landing-card-button landing-card-continue" type="button" data-continue-workspace>
                     <span class="landing-card-icon" aria-hidden="true">↩</span>
                     <span>
                       <strong>Continue</strong>
                       <small>${savedWorkspace.workspaceName}</small>
                     </span>
-                  </button>
-                </article>
+                </button>
               `
               : ""
           }
 
-          <article class="landing-card ${activePanel === "create" ? "is-expanded" : ""}">
-            <button class="landing-card-button" type="button" data-landing-card="create">
+          <div class="landing-card-wrap ${activePanel === "create" ? "is-expanded" : ""}">
+            <button class="landing-card landing-card-button" type="button" data-landing-card="create">
               <span class="landing-card-icon" aria-hidden="true">✨</span>
               <span>
                 <strong>Create Workspace</strong>
@@ -45,10 +43,10 @@ export function LandingPage(activePanel = null, savedWorkspace = null) {
                 `
                 : ""
             }
-          </article>
+          </div>
 
-          <article class="landing-card ${activePanel === "open" ? "is-expanded" : ""}">
-            <button class="landing-card-button" type="button" data-landing-card="open">
+          <div class="landing-card-wrap ${activePanel === "open" ? "is-expanded" : ""}">
+            <button class="landing-card landing-card-button" type="button" data-landing-card="open">
               <span class="landing-card-icon" aria-hidden="true">📂</span>
               <span>
                 <strong>Open Workspace</strong>
@@ -68,7 +66,7 @@ export function LandingPage(activePanel = null, savedWorkspace = null) {
                 `
                 : ""
             }
-          </article>
+          </div>
         </div>
       </section>
     </main>
