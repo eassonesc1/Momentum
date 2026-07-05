@@ -44,7 +44,6 @@ export function MainWorkspace() {
               Daily input and immediate feedback.
             </p>
             <div class="workspace-date-region" id="workspaceDateRegion"></div>
-            <div class="save-status is-saved" id="workspaceSaveStatus">✓ All changes saved</div>
           </header>
 
           <section id="pageContent" aria-live="polite"></section>
