@@ -9,6 +9,15 @@ export const isSupabaseConfigured = Boolean(
   supabaseUrl && supabasePublishableKey,
 );
 
+export const supabaseConfig = {
+  hasSupabaseUrl: Boolean(supabaseUrl),
+  hasSupabaseKey: Boolean(supabasePublishableKey),
+  activeBackend: isSupabaseConfigured ? "Supabase" : "localStorage",
+};
+
+console.log("[Momentum Supabase] Environment check", supabaseConfig);
+console.log(`Storage backend: ${supabaseConfig.activeBackend}`);
+
 if (!isSupabaseConfigured) {
   console.warn(
     "Momentum Supabase env vars are missing. Using localStorage fallback.",

@@ -163,8 +163,7 @@ export async function createProfile(userId, displayName) {
     return normalized;
   } catch (error) {
     logPersistenceError("createProfile", error);
-    warnFallback("Supabase profile save failed; using local mirror.");
-    return profile;
+    throw error;
   }
 }
 
@@ -199,8 +198,7 @@ export async function loadProfile(userId) {
     return normalized || localProfile || null;
   } catch (error) {
     logPersistenceError("loadProfile", error);
-    warnFallback("Supabase profile load failed; using local mirror.");
-    return localProfile || null;
+    throw error;
   }
 }
 
@@ -240,8 +238,7 @@ export async function saveDailyEntry(userId, date, data) {
     return normalized;
   } catch (error) {
     logPersistenceError("saveDailyEntry", error);
-    warnFallback("Supabase daily save failed; using local mirror.");
-    return entry;
+    throw error;
   }
 }
 
@@ -278,8 +275,7 @@ export async function loadDailyEntry(userId, date) {
     return normalized || localEntry;
   } catch (error) {
     logPersistenceError("loadDailyEntry", error);
-    warnFallback("Supabase daily load failed; using local mirror.");
-    return localEntry;
+    throw error;
   }
 }
 
@@ -312,8 +308,7 @@ export async function loadDailyEntries(userId) {
     return normalized.length ? normalized : localEntries;
   } catch (error) {
     logPersistenceError("loadDailyEntries", error);
-    warnFallback("Supabase daily load failed; using local mirror.");
-    return localEntries;
+    throw error;
   }
 }
 
@@ -389,8 +384,7 @@ export async function saveJournalEntry(userId, entry) {
     return savedEntry;
   } catch (error) {
     logPersistenceError("saveJournalEntry", error);
-    warnFallback("Supabase journal save failed; using local mirror.");
-    return normalized;
+    throw error;
   }
 }
 
@@ -440,8 +434,7 @@ export async function loadJournalEntries(userId) {
     return normalized.length ? normalized : localEntries;
   } catch (error) {
     logPersistenceError("loadJournalEntries", error);
-    warnFallback("Supabase journal load failed; using local mirror.");
-    return localEntries;
+    throw error;
   }
 }
 
@@ -504,8 +497,7 @@ export async function saveJobApplication(userId, application) {
     return savedApplication;
   } catch (error) {
     logPersistenceError("saveJobApplication", error);
-    warnFallback("Supabase job application save failed; using local mirror.");
-    return localApplication;
+    throw error;
   }
 }
 
@@ -541,8 +533,7 @@ export async function loadJobApplications(userId) {
     return normalized.length ? normalized : localApplications;
   } catch (error) {
     logPersistenceError("loadJobApplications", error);
-    warnFallback("Supabase job application load failed; using local mirror.");
-    return localApplications;
+    throw error;
   }
 }
 

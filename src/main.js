@@ -10,6 +10,7 @@ import {
   saveJobApplication,
   saveJournalEntry,
 } from "./lib/dataStore.js";
+import { supabaseConfig } from "./lib/supabase.js";
 import { LandingPage } from "./components/LandingPage.js";
 import { MainWorkspace } from "./components/MainWorkspace.js";
 
@@ -239,6 +240,18 @@ function getWorkspaceId() {
 function getWorkspaceName() {
   return localStorage.getItem("workspaceName") || "Workspace";
 }
+
+window.momentumDebugStorage = function momentumDebugStorage() {
+  const report = {
+    hasSupabaseUrl: supabaseConfig.hasSupabaseUrl,
+    hasSupabaseKey: supabaseConfig.hasSupabaseKey,
+    activeBackend: supabaseConfig.activeBackend,
+    currentUserId: getWorkspaceId(),
+  };
+
+  console.log("[Momentum persistence] debug storage", report);
+  return report;
+};
 
 function getDailyDataForDate(date) {
   return {
