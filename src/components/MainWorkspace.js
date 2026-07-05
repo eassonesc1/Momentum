@@ -8,21 +8,21 @@ export function MainWorkspace() {
         </div>
 
         <nav class="nav">
-          <button class="nav-button is-active" type="button" data-page="Workspace">
+          <button class="nav-button is-active" type="button" data-page="Daily">
             <span class="nav-icon" aria-hidden="true">🏠</span>
-            <span>Workspace</span>
-          </button>
-          <button class="nav-button" type="button" data-page="Journal">
-            <span class="nav-icon" aria-hidden="true">📝</span>
-            <span>Journal</span>
-          </button>
-          <button class="nav-button" type="button" data-page="Job Tracker">
-            <span class="nav-icon" aria-hidden="true">💼</span>
-            <span>Job Tracker</span>
+            <span>Daily</span>
           </button>
           <button class="nav-button" type="button" data-page="Insights">
-            <span class="nav-icon" aria-hidden="true">📊</span>
+            <span class="nav-icon" aria-hidden="true">📝</span>
             <span>Insights</span>
+          </button>
+          <button class="nav-button" type="button" data-page="Analytics">
+            <span class="nav-icon" aria-hidden="true">📊</span>
+            <span>Analytics</span>
+          </button>
+          <button class="nav-button" type="button" data-page="Profile">
+            <span class="nav-icon" aria-hidden="true">💼</span>
+            <span>Profile</span>
           </button>
         </nav>
 
@@ -31,6 +31,7 @@ export function MainWorkspace() {
             <span>Workspace</span>
             <strong id="sidebarWorkspaceName">Momentum</strong>
           </div>
+          <p class="sidebar-user-id" id="sidebarUserId">ID: --</p>
           <p>Momentum v0.1</p>
         </div>
       </aside>

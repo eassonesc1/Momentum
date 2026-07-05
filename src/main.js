@@ -36,7 +36,7 @@ let pageSubtitle = null;
 let pageContent = null;
 let workspaceDateRegion = null;
 let workspaceSaveStatus = null;
-let activePage = "Workspace";
+let activePage = "Daily";
 let autoSaveTimer = null;
 
 const state = {
@@ -47,8 +47,8 @@ const state = {
     entries: [
       {
         date: getTodayISO(),
-        wakeUp: "07:38",
-        bedtime: "23:30",
+        wakeUp: "",
+        bedtime: "",
       },
     ],
   },
@@ -106,7 +106,7 @@ const state = {
 };
 
 function minutesBetween(start, end) {
-  if (!start || !end) {
+  if (!isValidTime(start) || !isValidTime(end)) {
     return 0;
   }
 
@@ -116,6 +116,10 @@ function minutesBetween(start, end) {
   const endTotal = endHour * 60 + endMinute;
 
   return (endTotal - startTotal + 24 * 60) % (24 * 60);
+}
+
+function isValidTime(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value || "");
 }
 
 function formatDuration(minutes) {
@@ -142,7 +146,7 @@ function createId(prefix) {
 }
 
 function timeToNumber(value, overnight = false) {
-  if (!value) {
+  if (!isValidTime(value)) {
     return 0;
   }
 
@@ -171,8 +175,8 @@ function getOrCreateSleepEntry(date) {
   if (!entry) {
     entry = {
       date,
-      wakeUp: "07:38",
-      bedtime: "23:30",
+      wakeUp: "",
+      bedtime: "",
     };
     state.sleep.entries.push(entry);
   }
@@ -186,13 +190,12 @@ function getSelectedDate() {
 
 function getSleepDurationForDate(date) {
   const currentEntry = getSleepEntry(date);
-  const previousEntry = getSleepEntry(addDays(date, -1));
 
-  if (!currentEntry?.wakeUp || !previousEntry?.bedtime) {
+  if (!isValidTime(currentEntry?.wakeUp) || !isValidTime(currentEntry?.bedtime)) {
     return null;
   }
 
-  return minutesBetween(previousEntry.bedtime, currentEntry.wakeUp);
+  return minutesBetween(currentEntry.bedtime, currentEntry.wakeUp);
 }
 
 function getHealthEntry(date) {
@@ -416,6 +419,14 @@ function getRangeBounds() {
     };
   }
 
+  if (state.analytics.range === "year") {
+    return {
+      label: "Year",
+      from: `${today.slice(0, 4)}-01-01`,
+      to: today,
+    };
+  }
+
   if (state.analytics.range === "custom") {
     return {
       label: "Custom",
@@ -546,20 +557,59 @@ function getAnalyticsData() {
   };
 }
 
-function pointsForLine(values, width = 320, height = 118, padding = 14) {
+function pointsForLine(values, width = 360, height = 160, padding = 18) {
   const chartValues = values.length ? values : [0];
   const min = Math.min(...chartValues);
   const max = Math.max(...chartValues);
   const range = max - min || 1;
+  const chartLeft = 46;
+  const chartRight = width - 10;
+  const chartTop = 18;
+  const chartBottom = height - 34;
 
   return chartValues.map((value, index) => {
     const x =
       chartValues.length === 1
-        ? width / 2
-        : padding + (index * (width - padding * 2)) / (chartValues.length - 1);
-    const y = height - padding - ((value - min) / range) * (height - padding * 2);
+        ? (chartLeft + chartRight) / 2
+        : chartLeft + (index * (chartRight - chartLeft)) / (chartValues.length - 1);
+    const y = chartBottom - ((value - min) / range) * (chartBottom - chartTop);
     return { x, y, value };
   });
+}
+
+function getChartXAxisLabels() {
+  if (state.analytics.range === "month") {
+    return ["1", "5", "10", "15", "20", "25", "30"];
+  }
+
+  if (state.analytics.range === "year") {
+    return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  }
+
+  if (state.analytics.range === "custom") {
+    return getRangeDates(getRangeBounds())
+      .filter((_, index, dates) => index === 0 || index === dates.length - 1)
+      .map((date) => new Date(`${date}T00:00:00`).getDate().toString());
+  }
+
+  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+}
+
+function getChartYTicks(values) {
+  const chartValues = values.length ? values : [0];
+  const min = Math.min(...chartValues);
+  const max = Math.max(...chartValues);
+
+  if (min === max) {
+    return [max + 1, max, Math.max(0, max - 1)];
+  }
+
+  const middle = min + (max - min) / 2;
+  return [max, middle, min];
+}
+
+function formatChartTick(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 function LineChart({ values, soft = false, accent = "" }) {
@@ -567,17 +617,37 @@ function LineChart({ values, soft = false, accent = "" }) {
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
+  const xLabels = getChartXAxisLabels();
+  const yTicks = getChartYTicks(values);
+  const yPositions = [18, 72, 126];
+  const xStart = 46;
+  const xEnd = 350;
 
   return `
-    <svg class="line-chart" viewBox="0 0 320 118" role="img" aria-hidden="true">
-      <line class="chart-grid-line" x1="14" y1="24" x2="306" y2="24"></line>
-      <line class="chart-grid-line" x1="14" y1="94" x2="306" y2="94"></line>
+    <svg class="line-chart" viewBox="0 0 360 160" role="img" aria-hidden="true">
+      ${yPositions
+        .map(
+          (y, index) => `
+            <text class="chart-y-label" x="4" y="${y + 4}">${formatChartTick(yTicks[index])}</text>
+            <line class="chart-grid-line" x1="46" y1="${y}" x2="350" y2="${y}"></line>
+          `,
+        )
+        .join("")}
       <path class="chart-line ${soft ? "soft-line" : ""} ${accent ? `chart-${accent}` : ""}" d="${path}"></path>
       ${points
         .map(
           (point) =>
             `<circle class="chart-dot" cx="${point.x}" cy="${point.y}" r="4"></circle>`,
         )
+        .join("")}
+      ${xLabels
+        .map((label, index) => {
+          const x =
+            xLabels.length === 1
+              ? (xStart + xEnd) / 2
+              : xStart + (index * (xEnd - xStart)) / (xLabels.length - 1);
+          return `<text class="chart-x-label" x="${x}" y="152">${escapeHTML(label)}</text>`;
+        })
         .join("")}
     </svg>
   `;
@@ -665,54 +735,6 @@ function getHeroInsight(data) {
   return "A gentle start.";
 }
 
-function InsightMetric(label, value, description, accent) {
-  return `
-    <div class="insight-metric accent-${accent}">
-      <span>${label}</span>
-      <strong>${value}</strong>
-      <p>${description}</p>
-    </div>
-  `;
-}
-
-function InsightsHero() {
-  const data = getAnalyticsData();
-  const range = getRangeBounds();
-  const focusTotal = getFocusTotal(data);
-
-  return `
-    <section class="insights-hero" aria-label="Insights overview">
-      <p class="insights-kicker">${getRangeTitle(range)}</p>
-      <h2>${getHeroInsight(data)}</h2>
-      <div class="insights-story">
-        <p>You focused for <strong>${formatHours(focusTotal)}</strong>.</p>
-        <p>Average sleep was <strong>${data.sleep.averageDuration}</strong>.</p>
-        <p>Mood averaged <strong>${data.mood.average}</strong>.</p>
-      </div>
-    </section>
-  `;
-}
-
-function MonthlySummaryCard() {
-  const data = getAnalyticsData();
-
-  return `
-    <section class="insights-feature-card" aria-label="Monthly summary">
-      <div class="insights-section-heading">
-        <p>Monthly Summary</p>
-        <h2>Your life signals, softened.</h2>
-      </div>
-      <div class="insight-metrics-grid">
-        ${InsightMetric("Average Sleep", data.sleep.averageDuration, "Schedule consistency and rest.", "sleep")}
-        ${InsightMetric("Average Mood", data.mood.average, "Your emotional baseline.", "mood")}
-        ${InsightMetric("Total Focus", formatHours(getFocusTotal(data)), "Study and work combined.", "focus")}
-        ${InsightMetric("Career Progress", getCareerProgress(data), "Applications and interviews.", "career")}
-        ${InsightMetric("Health Activity", getHealthActivity(data), "Training and body notes.", "health")}
-      </div>
-    </section>
-  `;
-}
-
 function getActivityIntensity(date) {
   const focusMinutes = state.focus.sessions
     .filter((session) => session.date === date)
@@ -789,32 +811,6 @@ function InsightsObservationsCard() {
   `;
 }
 
-function DonutChart({ study, work }) {
-  const total = study + work;
-  const radius = 76;
-  const circumference = 2 * Math.PI * radius;
-  const studyLength = total ? (study / total) * circumference : 0;
-  const workLength = total ? (work / total) * circumference : 0;
-
-  return `
-    <div class="donut-wrap">
-      <svg class="donut-chart" viewBox="0 0 190 190" role="img" aria-hidden="true">
-        <circle cx="95" cy="95" r="${radius}" fill="none" stroke="#f1f1f3" stroke-width="18"></circle>
-        <circle cx="95" cy="95" r="${radius}" fill="none" stroke="#1d1d1f" stroke-width="18" stroke-linecap="round"
-          stroke-dasharray="${studyLength} ${circumference - studyLength}" stroke-dashoffset="0"></circle>
-        <circle cx="95" cy="95" r="${radius}" fill="none" stroke="#8e8e93" stroke-width="18" stroke-linecap="round"
-          stroke-dasharray="${workLength} ${circumference - workLength}" stroke-dashoffset="${-studyLength}"></circle>
-      </svg>
-      <div class="donut-center">
-        <div>
-          <strong>${formatDuration(total)}</strong>
-          <span>Total Focus</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function AnalyticsCard({ title, children, wide = false }) {
   return `
     <article class="analytics-card ${wide ? "wide" : ""}" data-analytics-card="${title}">
@@ -855,7 +851,7 @@ function TimeRangeSelector() {
   return `
     <div class="analytics-controls">
       <div class="range-segmented" aria-label="Time range">
-        ${["week", "month", "custom"]
+        ${["week", "month", "year", "custom"]
           .map(
             (range) =>
               `<button class="range-option ${state.analytics.range === range ? "is-active" : ""}" type="button" data-range="${range}">${range[0].toUpperCase()}${range.slice(1)}</button>`,
@@ -895,11 +891,14 @@ function Card({ icon, title, children }) {
 }
 
 function TimeCard({ label, value, id }) {
+  const displayValue = isValidTime(value) ? value : "--:--";
+  const inputValue = isValidTime(value) ? value : "";
+
   return `
     <label class="time-card" for="${id}" data-time-card="${id}">
       <span class="micro-label">${label}</span>
-      <span class="time-value" id="${id}Display">${value}</span>
-      <input class="native-time-input" id="${id}" type="time" value="${value}" aria-label="${label}" />
+      <span class="time-value" id="${id}Display">${displayValue}</span>
+      <input class="native-time-input" id="${id}" type="time" value="${inputValue}" aria-label="${label}" />
     </label>
   `;
 }
@@ -908,8 +907,7 @@ function SleepCard() {
   const selectedDate = getSelectedDate();
   const selectedSleep = getOrCreateSleepEntry(selectedDate);
   const duration = getSleepDurationForDate(selectedDate);
-  const durationLabel =
-    duration === null ? "Not enough data" : formatDuration(duration);
+  const durationLabel = duration === null ? "--h --m" : formatDuration(duration);
 
   return Card({
     icon: "😴",
@@ -1452,30 +1450,44 @@ function renderJournal() {
   wireJournal();
 }
 
-function renderAnalytics() {
-  activePage = "Insights";
-  const data = getAnalyticsData();
-  pageEyebrow.textContent = "Insights";
-  pageEyebrow.hidden = true;
-  pageTitle.textContent = "Insights";
-  pageSubtitle.textContent = "A reflective view of your patterns over time.";
-  pageSubtitle.hidden = false;
+function clearWorkspaceHeaderControls() {
   if (workspaceDateRegion) {
     workspaceDateRegion.innerHTML = "";
   }
   if (workspaceSaveStatus) {
     workspaceSaveStatus.hidden = true;
   }
+}
+
+function renderInsights() {
+  activePage = "Insights";
+  pageEyebrow.textContent = "Insights";
+  pageEyebrow.hidden = true;
+  pageTitle.textContent = "Insights";
+  pageSubtitle.textContent = "Quiet reflections and weekly reviews will live here.";
+  pageSubtitle.hidden = false;
+  clearWorkspaceHeaderControls();
   pageContent.innerHTML = `
     <div class="insights-page">
+      ${InsightsObservationsCard()}
+    </div>
+  `;
+}
+
+function renderAnalytics() {
+  activePage = "Analytics";
+  const data = getAnalyticsData();
+  pageEyebrow.textContent = "Analytics";
+  pageEyebrow.hidden = true;
+  pageTitle.textContent = "Analytics";
+  pageSubtitle.textContent = "Clear trends from your saved Momentum history.";
+  pageSubtitle.hidden = false;
+  clearWorkspaceHeaderControls();
+  pageContent.innerHTML = `
+    <div class="analytics-page">
       ${TimeRangeSelector()}
-      ${InsightsHero()}
-      ${MonthlySummaryCard()}
-      <div class="insights-feature-grid">
-        ${ActivityHeatmapCard()}
-        ${InsightsObservationsCard()}
-      </div>
-      <div class="analytics-grid insights-secondary-grid">
+      <div class="analytics-grid">
+        ${MomentumScoreCard()}
         ${SleepAnalyticsCard()}
         ${FocusAnalyticsCard()}
         ${MoodAnalyticsCard()}
@@ -1490,7 +1502,7 @@ function renderAnalytics() {
 }
 
 function renderWorkspace() {
-  activePage = "Workspace";
+  activePage = "Daily";
   const selectedDate = getDateParts(getSelectedDate());
   const workspaceName = localStorage.getItem("workspaceName") || "Chen";
   const firstName = workspaceName.split(/\s+/)[0] || "Chen";
@@ -1508,33 +1520,41 @@ function renderWorkspace() {
     <div class="workspace-grid">
       ${SleepCard()}
       ${FocusCard()}
-      ${CareerCard()}
       ${HealthCard()}
       ${MoodCard()}
+      ${CareerCard()}
     </div>
   `;
   wireWorkspace();
 }
 
-function renderJobTracker() {
-  activePage = "Job Tracker";
-  pageEyebrow.textContent = "Job Tracker";
+function renderProfile() {
+  activePage = "Profile";
+  const workspaceName = getWorkspaceName();
+  const userId = getWorkspaceId() || "--";
+  pageEyebrow.textContent = "Profile";
   pageEyebrow.hidden = true;
-  pageTitle.textContent = "Job Tracker";
-  pageSubtitle.textContent = "Career applications in one place.";
+  pageTitle.textContent = "Profile";
+  pageSubtitle.textContent = "Your current Momentum workspace.";
   pageSubtitle.hidden = false;
-  if (workspaceDateRegion) {
-    workspaceDateRegion.innerHTML = "";
-  }
-  if (workspaceSaveStatus) {
-    workspaceSaveStatus.hidden = true;
-  }
-  pageContent.innerHTML = JobTrackerPage();
+  clearWorkspaceHeaderControls();
+  pageContent.innerHTML = `
+    <div class="tracker-page">
+      <section class="tracker-card" aria-label="Profile">
+        <div class="profile-list">
+          <div class="summary-row"><span>Workspace</span><strong>${escapeHTML(workspaceName)}</strong></div>
+          <div class="summary-row"><span>Momentum ID</span><strong>${escapeHTML(userId)}</strong></div>
+          <div class="summary-row"><span>Storage</span><strong>${escapeHTML(supabaseConfig.activeBackend)}</strong></div>
+        </div>
+      </section>
+      ${JobTrackerPage()}
+    </div>
+  `;
   wireJobTracker();
 }
 
 function rerenderJobTracker({ focusSearch = false } = {}) {
-  renderJobTracker();
+  renderProfile();
 
   if (focusSearch) {
     const search = document.getElementById("jobSearch");
@@ -1566,23 +1586,23 @@ function renderComingSoon(page) {
 }
 
 function renderPage(page) {
-  if (page === "Workspace") {
+  if (page === "Daily" || page === "Workspace") {
     renderWorkspace();
     return;
   }
 
-  if (page === "Journal") {
-    renderJournal();
+  if (page === "Insights" || page === "Journal") {
+    renderInsights();
     return;
   }
 
-  if (page === "Job Tracker") {
-    renderJobTracker();
-    return;
-  }
-
-  if (page === "Insights" || page === "Analytics") {
+  if (page === "Analytics") {
     renderAnalytics();
+    return;
+  }
+
+  if (page === "Profile" || page === "Job Tracker") {
+    renderProfile();
     return;
   }
 
@@ -1823,7 +1843,7 @@ async function loadMoodRangeForAnalytics({ force = false } = {}) {
       state.mood.loadedRanges.push(key);
     }
 
-    if (activePage === "Insights") {
+    if (activePage === "Analytics") {
       renderAnalytics();
     }
   } catch (error) {
@@ -2094,12 +2114,30 @@ function wireAnalytics() {
 }
 
 function generateMomentumId() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const suffix = Array.from({ length: 5 }, () =>
+  const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+  return Array.from({ length: 6 }, () =>
     alphabet[Math.floor(Math.random() * alphabet.length)],
   ).join("");
+}
 
-  return `MOM-${suffix}`;
+async function createUniqueProfile(displayName, attempts = 8) {
+  let lastError = null;
+
+  for (let index = 0; index < attempts; index += 1) {
+    const momentumId = generateMomentumId();
+
+    try {
+      return await createProfile(momentumId, displayName);
+    } catch (error) {
+      lastError = error;
+
+      if (error?.code !== "profile_exists") {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error("Could not create a unique Momentum ID.");
 }
 
 function saveWorkspace({ workspaceName, momentumId }) {
@@ -2127,9 +2165,14 @@ function renderWorkspaceInfo() {
   const workspaceName = getWorkspaceName();
 
   const nameNode = document.getElementById("sidebarWorkspaceName");
+  const userIdNode = document.getElementById("sidebarUserId");
 
   if (nameNode) {
     nameNode.textContent = workspaceName;
+  }
+
+  if (userIdNode) {
+    userIdNode.textContent = `ID: ${getWorkspaceId() || "--"}`;
   }
 }
 
@@ -2204,27 +2247,15 @@ function wireLandingPage() {
 
     const workspaceName =
       document.getElementById("workspaceNameInput")?.value.trim() || "Workspace";
-    const momentumId = normalizeUserId(
-      document.getElementById("createUserIdInput")?.value,
-    );
-
-    if (!momentumId) {
-      landingPanel = "create";
-      landingError = "Please enter a Momentum ID.";
-      renderApp();
-      wireLandingPage();
-      return;
-    }
-
-    createProfile(momentumId, workspaceName)
+    createUniqueProfile(workspaceName)
       .then((profile) => {
         landingError = "";
         saveWorkspace({
           workspaceName: profile?.displayName || workspaceName,
-          momentumId: profile?.userId || momentumId,
+          momentumId: profile?.userId,
         });
         console.info("[Momentum persistence] createProfile result", {
-          userId: profile?.userId || momentumId,
+          userId: profile?.userId,
           profile,
         });
         enterWorkspace();
