@@ -318,6 +318,7 @@ function applyJobApplications(applications) {
 
 async function loadUserData() {
   const userId = getWorkspaceId();
+  console.info("[Momentum persistence] current user_id", { userId });
 
   if (!userId) {
     return;
@@ -330,6 +331,12 @@ async function loadUserData() {
       loadJobApplications(userId),
     ]);
 
+    console.info("[Momentum persistence] hydrate result", {
+      userId,
+      dailyEntries,
+      journalEntries,
+      applications,
+    });
     dailyEntries.forEach(applyDailyEntry);
     applyJournalEntries(journalEntries);
     applyJobApplications(applications);
@@ -2143,15 +2150,20 @@ function wireLandingPage() {
 
     createProfile(momentumId, workspaceName)
       .then((profile) => {
-        saveWorkspace({
-          workspaceName: profile?.displayName || workspaceName,
-          momentumId: profile?.userId || momentumId,
-        });
-        enterWorkspace();
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+    saveWorkspace({
+      workspaceName: profile?.displayName || workspaceName,
+      momentumId: profile?.userId || momentumId,
+    });
+    console.info("[Momentum persistence] createProfile result", {
+      userId: profile?.userId || momentumId,
+      profile,
+    });
+    enterWorkspace();
+  })
+  .catch((error) => {
+    setSaveStatus("error");
+    console.error("[Momentum persistence] createProfile failed", error);
+  });
   });
 
   document.getElementById("openWorkspaceForm")?.addEventListener("submit", (event) => {
@@ -2169,10 +2181,15 @@ function wireLandingPage() {
           workspaceName: profile?.displayName || getWorkspaceName(),
           momentumId,
         });
+        console.info("[Momentum persistence] loadProfile result", {
+          userId: momentumId,
+          profile,
+        });
         enterWorkspace();
       })
       .catch((error) => {
-        console.error(error);
+        setSaveStatus("error");
+        console.error("[Momentum persistence] loadProfile failed", error);
       });
   });
 }

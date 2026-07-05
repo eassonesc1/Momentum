@@ -3,13 +3,29 @@ import { isSupabaseConfigured, supabase } from "./supabase.js";
 const LOCAL_PREFIX = "momentum:data";
 let fallbackWarningShown = false;
 
-function warnFallback() {
-  if (isSupabaseConfigured || fallbackWarningShown) {
+function logPersistence(operation, details = {}) {
+  console.info(`[Momentum persistence] ${operation}`, {
+    supabaseConfigured: isSupabaseConfigured,
+    ...details,
+  });
+}
+
+function logPersistenceError(operation, error) {
+  console.error(`[Momentum persistence] ${operation} failed`, {
+    message: error?.message || "Unknown error",
+    code: error?.code || null,
+    details: error?.details || null,
+    hint: error?.hint || null,
+  });
+}
+
+function warnFallback(reason = "Supabase is not configured.") {
+  if (fallbackWarningShown) {
     return;
   }
 
   fallbackWarningShown = true;
-  console.warn("Momentum is saving to localStorage because Supabase is not configured.");
+  console.warn(`Momentum is using localStorage fallback. ${reason}`);
 }
 
 function localKey(userId, resource) {
@@ -17,8 +33,6 @@ function localKey(userId, resource) {
 }
 
 function readLocal(userId, resource, fallback) {
-  warnFallback();
-
   try {
     const raw = localStorage.getItem(localKey(userId, resource));
     return raw ? JSON.parse(raw) : fallback;
@@ -29,8 +43,17 @@ function readLocal(userId, resource, fallback) {
 }
 
 function writeLocal(userId, resource, value) {
-  warnFallback();
   localStorage.setItem(localKey(userId, resource), JSON.stringify(value));
+  return value;
+}
+
+function upsertLocalBy(userId, resource, value, predicate) {
+  const items = readLocal(userId, resource, []);
+  const nextItems = [
+    ...items.filter((item) => !predicate(item)),
+    value,
+  ];
+  writeLocal(userId, resource, nextItems);
   return value;
 }
 
@@ -98,124 +121,200 @@ function normalizeApplication(row) {
 
 export async function createProfile(userId, displayName) {
   const profile = { userId, displayName: displayName || "Workspace" };
+  upsertLocalBy(
+    "profiles",
+    "items",
+    profile,
+    (item) => item.userId === userId,
+  );
+  logPersistence("createProfile:start", { userId });
 
   if (!isSupabaseConfigured) {
-    const profiles = readLocal("profiles", "items", []);
-    const nextProfiles = [
-      ...profiles.filter((item) => item.userId !== userId),
-      profile,
-    ];
-    writeLocal("profiles", "items", nextProfiles);
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("createProfile:local", { userId, result: profile });
     return profile;
   }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .upsert(
-      {
-        user_id: userId,
-        display_name: profile.displayName,
-      },
-      { onConflict: "user_id" },
-    )
-    .select("id, user_id, display_name")
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          user_id: userId,
+          display_name: profile.displayName,
+        },
+        { onConflict: "user_id" },
+      )
+      .select("id, user_id, display_name")
+      .single();
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const normalized = normalizeProfile(data);
+    upsertLocalBy(
+      "profiles",
+      "items",
+      normalized,
+      (item) => item.userId === userId,
+    );
+    logPersistence("createProfile:supabase", { userId, result: normalized });
+    return normalized;
+  } catch (error) {
+    logPersistenceError("createProfile", error);
+    warnFallback("Supabase profile save failed; using local mirror.");
+    return profile;
   }
-
-  return normalizeProfile(data);
 }
 
 export async function loadProfile(userId) {
+  const localProfile = readLocal("profiles", "items", []).find(
+    (item) => item.userId === userId,
+  );
+  logPersistence("loadProfile:start", { userId });
+
   if (!isSupabaseConfigured) {
-    const profiles = readLocal("profiles", "items", []);
-    return profiles.find((item) => item.userId === userId) || null;
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("loadProfile:local", { userId, result: localProfile || null });
+    return localProfile || null;
   }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, user_id, display_name")
-    .eq("user_id", userId)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, user_id, display_name")
+      .eq("user_id", userId)
+      .maybeSingle();
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const normalized = normalizeProfile(data);
+    logPersistence("loadProfile:supabase", {
+      userId,
+      result: normalized || localProfile || null,
+    });
+    return normalized || localProfile || null;
+  } catch (error) {
+    logPersistenceError("loadProfile", error);
+    warnFallback("Supabase profile load failed; using local mirror.");
+    return localProfile || null;
   }
-
-  return normalizeProfile(data);
 }
 
 export async function saveDailyEntry(userId, date, data) {
+  const entry = { userId, date, data };
+  upsertLocalBy(userId, "daily_entries", entry, (item) => item.date === date);
+  logPersistence("saveDailyEntry:start", { userId, date, data });
+
   if (!isSupabaseConfigured) {
-    const entries = readLocal(userId, "daily_entries", []);
-    const entry = { userId, date, data };
-    const nextEntries = [
-      ...entries.filter((item) => item.date !== date),
-      entry,
-    ].sort((a, b) => a.date.localeCompare(b.date));
-    writeLocal(userId, "daily_entries", nextEntries);
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("saveDailyEntry:local", { userId, date, result: entry });
     return entry;
   }
 
-  const { data: row, error } = await supabase
-    .from("daily_entries")
-    .upsert(
-      {
-        user_id: userId,
-        entry_date: date,
-        data,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,entry_date" },
-    )
-    .select("id, user_id, entry_date, data")
-    .single();
+  try {
+    const { data: row, error } = await supabase
+      .from("daily_entries")
+      .upsert(
+        {
+          user_id: userId,
+          entry_date: date,
+          data,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,entry_date" },
+      )
+      .select("id, user_id, entry_date, data")
+      .single();
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const normalized = normalizeDailyEntry(row);
+    upsertLocalBy(userId, "daily_entries", normalized, (item) => item.date === date);
+    logPersistence("saveDailyEntry:supabase", { userId, date, result: normalized });
+    return normalized;
+  } catch (error) {
+    logPersistenceError("saveDailyEntry", error);
+    warnFallback("Supabase daily save failed; using local mirror.");
+    return entry;
   }
-
-  return normalizeDailyEntry(row);
 }
 
 export async function loadDailyEntry(userId, date) {
+  const localEntry =
+    readLocal(userId, "daily_entries", []).find((entry) => entry.date === date) ||
+    null;
+  logPersistence("loadDailyEntry:start", { userId, date });
+
   if (!isSupabaseConfigured) {
-    const entries = readLocal(userId, "daily_entries", []);
-    return entries.find((entry) => entry.date === date) || null;
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("loadDailyEntry:local", { userId, date, result: localEntry });
+    return localEntry;
   }
 
-  const { data, error } = await supabase
-    .from("daily_entries")
-    .select("id, user_id, entry_date, data")
-    .eq("user_id", userId)
-    .eq("entry_date", date)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from("daily_entries")
+      .select("id, user_id, entry_date, data")
+      .eq("user_id", userId)
+      .eq("entry_date", date)
+      .maybeSingle();
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const normalized = normalizeDailyEntry(data);
+    logPersistence("loadDailyEntry:supabase", {
+      userId,
+      date,
+      result: normalized || localEntry,
+    });
+    return normalized || localEntry;
+  } catch (error) {
+    logPersistenceError("loadDailyEntry", error);
+    warnFallback("Supabase daily load failed; using local mirror.");
+    return localEntry;
   }
-
-  return normalizeDailyEntry(data);
 }
 
 export async function loadDailyEntries(userId) {
+  const localEntries = readLocal(userId, "daily_entries", []);
+  logPersistence("loadDailyEntries:start", { userId });
+
   if (!isSupabaseConfigured) {
-    return readLocal(userId, "daily_entries", []);
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("loadDailyEntries:local", { userId, result: localEntries });
+    return localEntries;
   }
 
-  const { data, error } = await supabase
-    .from("daily_entries")
-    .select("id, user_id, entry_date, data")
-    .eq("user_id", userId)
-    .order("entry_date", { ascending: true });
+  try {
+    const { data, error } = await supabase
+      .from("daily_entries")
+      .select("id, user_id, entry_date, data")
+      .eq("user_id", userId)
+      .order("entry_date", { ascending: true });
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const normalized = (data || []).map(normalizeDailyEntry);
+    logPersistence("loadDailyEntries:supabase", {
+      userId,
+      result: normalized.length ? normalized : localEntries,
+    });
+    return normalized.length ? normalized : localEntries;
+  } catch (error) {
+    logPersistenceError("loadDailyEntries", error);
+    warnFallback("Supabase daily load failed; using local mirror.");
+    return localEntries;
   }
-
-  return (data || []).map(normalizeDailyEntry);
 }
 
 export async function saveJournalEntry(userId, entry) {
@@ -227,43 +326,72 @@ export async function saveJournalEntry(userId, entry) {
     mood: entry.mood ?? null,
     tags: entry.tags || [],
   };
+  upsertLocalBy(
+    userId,
+    "journal_entries",
+    normalized,
+    (item) => item.date === normalized.date,
+  );
+  logPersistence("saveJournalEntry:start", {
+    userId,
+    date: normalized.date,
+    textLength: normalized.text.length,
+  });
 
   if (!isSupabaseConfigured) {
-    const entries = readLocal(userId, "journal_entries", []);
-    const nextEntries = [
-      ...entries.filter((item) => item.date !== normalized.date),
-      normalized,
-    ].sort((a, b) => a.date.localeCompare(b.date));
-    writeLocal(userId, "journal_entries", nextEntries);
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("saveJournalEntry:local", {
+      userId,
+      date: normalized.date,
+      result: normalized,
+    });
     return normalized;
   }
 
-  const existing = normalized.id
-    ? { id: normalized.id }
-    : await findJournalEntry(userId, normalized.date);
+  try {
+    const existing = normalized.id
+      ? { id: normalized.id }
+      : await findJournalEntry(userId, normalized.date);
 
-  const payload = {
-    user_id: userId,
-    entry_date: normalized.date,
-    content: normalized.text,
-    mood: normalized.mood,
-    tags: normalized.tags,
-    updated_at: new Date().toISOString(),
-  };
+    const payload = {
+      user_id: userId,
+      entry_date: normalized.date,
+      content: normalized.text,
+      mood: normalized.mood,
+      tags: normalized.tags,
+      updated_at: new Date().toISOString(),
+    };
 
-  const query = existing?.id
-    ? supabase.from("journal_entries").update(payload).eq("id", existing.id)
-    : supabase.from("journal_entries").insert(payload);
+    const query = existing?.id
+      ? supabase.from("journal_entries").update(payload).eq("id", existing.id)
+      : supabase.from("journal_entries").insert(payload);
 
-  const { data, error } = await query
-    .select("id, user_id, entry_date, content, mood, tags")
-    .single();
+    const { data, error } = await query
+      .select("id, user_id, entry_date, content, mood, tags")
+      .single();
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const savedEntry = normalizeJournalEntry(data);
+    upsertLocalBy(
+      userId,
+      "journal_entries",
+      savedEntry,
+      (item) => item.date === savedEntry.date,
+    );
+    logPersistence("saveJournalEntry:supabase", {
+      userId,
+      date: savedEntry.date,
+      result: savedEntry,
+    });
+    return savedEntry;
+  } catch (error) {
+    logPersistenceError("saveJournalEntry", error);
+    warnFallback("Supabase journal save failed; using local mirror.");
+    return normalized;
   }
-
-  return normalizeJournalEntry(data);
 }
 
 async function findJournalEntry(userId, date) {
@@ -284,24 +412,53 @@ async function findJournalEntry(userId, date) {
 }
 
 export async function loadJournalEntries(userId) {
+  const localEntries = readLocal(userId, "journal_entries", []);
+  logPersistence("loadJournalEntries:start", { userId });
+
   if (!isSupabaseConfigured) {
-    return readLocal(userId, "journal_entries", []);
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("loadJournalEntries:local", { userId, result: localEntries });
+    return localEntries;
   }
 
-  const { data, error } = await supabase
-    .from("journal_entries")
-    .select("id, user_id, entry_date, content, mood, tags")
-    .eq("user_id", userId)
-    .order("entry_date", { ascending: true });
+  try {
+    const { data, error } = await supabase
+      .from("journal_entries")
+      .select("id, user_id, entry_date, content, mood, tags")
+      .eq("user_id", userId)
+      .order("entry_date", { ascending: true });
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const normalized = (data || []).map(normalizeJournalEntry);
+    logPersistence("loadJournalEntries:supabase", {
+      userId,
+      result: normalized.length ? normalized : localEntries,
+    });
+    return normalized.length ? normalized : localEntries;
+  } catch (error) {
+    logPersistenceError("loadJournalEntries", error);
+    warnFallback("Supabase journal load failed; using local mirror.");
+    return localEntries;
   }
-
-  return (data || []).map(normalizeJournalEntry);
 }
 
 export async function saveJobApplication(userId, application) {
+  const localApplication = { ...application, userId };
+  upsertLocalBy(
+    userId,
+    "job_applications",
+    localApplication,
+    (item) => item.id === localApplication.id,
+  );
+  logPersistence("saveJobApplication:start", {
+    userId,
+    applicationId: application.id,
+    status: application.status,
+  });
+
   const payload = {
     user_id: userId,
     company: application.company || "",
@@ -313,48 +470,80 @@ export async function saveJobApplication(userId, application) {
   };
 
   if (!isSupabaseConfigured) {
-    const applications = readLocal(userId, "job_applications", []);
-    const localApplication = { ...application, userId };
-    const nextApplications = [
-      ...applications.filter((item) => item.id !== localApplication.id),
-      localApplication,
-    ];
-    writeLocal(userId, "job_applications", nextApplications);
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("saveJobApplication:local", {
+      userId,
+      result: localApplication,
+    });
     return localApplication;
   }
 
-  const query =
-    isUuid(application.id)
-      ? supabase.from("job_applications").update(payload).eq("id", application.id)
-      : supabase.from("job_applications").insert(payload);
+  try {
+    const query =
+      isUuid(application.id)
+        ? supabase.from("job_applications").update(payload).eq("id", application.id)
+        : supabase.from("job_applications").insert(payload);
 
-  const { data, error } = await query
-    .select("id, user_id, company, role, status, notes, applied_date")
-    .single();
+    const { data, error } = await query
+      .select("id, user_id, company, role, status, notes, applied_date")
+      .single();
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const savedApplication = normalizeApplication(data);
+    const applications = readLocal(userId, "job_applications", []).filter(
+      (item) => item.id !== application.id && item.id !== savedApplication.id,
+    );
+    writeLocal(userId, "job_applications", [...applications, savedApplication]);
+    logPersistence("saveJobApplication:supabase", {
+      userId,
+      result: savedApplication,
+    });
+    return savedApplication;
+  } catch (error) {
+    logPersistenceError("saveJobApplication", error);
+    warnFallback("Supabase job application save failed; using local mirror.");
+    return localApplication;
   }
-
-  return normalizeApplication(data);
 }
 
 export async function loadJobApplications(userId) {
+  const localApplications = readLocal(userId, "job_applications", []);
+  logPersistence("loadJobApplications:start", { userId });
+
   if (!isSupabaseConfigured) {
-    return readLocal(userId, "job_applications", []);
+    warnFallback("Supabase env vars are missing.");
+    logPersistence("loadJobApplications:local", {
+      userId,
+      result: localApplications,
+    });
+    return localApplications;
   }
 
-  const { data, error } = await supabase
-    .from("job_applications")
-    .select("id, user_id, company, role, status, notes, applied_date")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from("job_applications")
+      .select("id, user_id, company, role, status, notes, applied_date")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const normalized = (data || []).map(normalizeApplication);
+    logPersistence("loadJobApplications:supabase", {
+      userId,
+      result: normalized.length ? normalized : localApplications,
+    });
+    return normalized.length ? normalized : localApplications;
+  } catch (error) {
+    logPersistenceError("loadJobApplications", error);
+    warnFallback("Supabase job application load failed; using local mirror.");
+    return localApplications;
   }
-
-  return (data || []).map(normalizeApplication);
 }
 
 export async function deleteJobApplication(userId, applicationId) {
