@@ -375,7 +375,6 @@ function getAnalyticsData() {
     health: {
       upper: healthEntries.filter((entry) => entry.training === "Upper").length,
       lower: healthEntries.filter((entry) => entry.training === "Lower").length,
-      period: healthEntries.filter((entry) => entry.period === "Yes").length,
     },
     mood: {
       average: moodEntries.length
@@ -485,11 +484,11 @@ function getCareerProgress(data) {
 function getHealthActivity(data) {
   const sessions = data.health.upper + data.health.lower;
 
-  if (!sessions && !data.health.period) {
+  if (!sessions) {
     return "No activity yet";
   }
 
-  return `${sessions} training${sessions === 1 ? "" : "s"}${data.health.period ? " · Period noted" : ""}`;
+  return `${sessions} training${sessions === 1 ? "" : "s"}`;
 }
 
 function getHeroInsight(data) {
@@ -568,7 +567,7 @@ function getActivityIntensity(date) {
   ).length;
   const healthEntry = getHealthEntry(date);
   const healthCount = healthEntry
-    ? Number(healthEntry.training !== "Rest") + Number(healthEntry.period === "Yes")
+    ? Number(healthEntry.training !== "Rest")
     : 0;
   const moodCount = state.mood.entries.some(
     (entry) => entry.date === date && entry.persisted,
@@ -615,7 +614,7 @@ function InsightsObservationsCard() {
       ? `Mood remained steady across the saved days.`
       : `Mood has room to recover; gentle routines may matter this week.`,
     data.health.upper + data.health.lower
-      ? `Movement is part of this period's rhythm.`
+      ? `Movement is part of this rhythm.`
       : `Health activity is still quiet in this range.`,
     data.sleep.averageDuration === "Not enough data"
       ? `Sleep patterns will become clearer after a few saved nights.`
@@ -997,10 +996,6 @@ function HealthCard() {
     activities.push("🏋 Lower Body");
   }
 
-  if (selectedHealth.period === "Yes") {
-    activities.push("🌸 Period");
-  }
-
   return Card({
     icon: "🏋",
     title: "Health",
@@ -1012,17 +1007,6 @@ function HealthCard() {
             .map(
               (option) =>
                 `<button class="segment ${selectedHealth.training === option ? "is-active" : ""}" type="button" data-training="${option}">${option}</button>`,
-            )
-            .join("")}
-        </div>
-      </div>
-      <div class="field">
-        <span class="field-label">Period</span>
-        <div class="segmented" id="periodOptions">
-          ${["No", "Yes"]
-            .map(
-              (option) =>
-                `<button class="segment ${selectedHealth.period === option ? "is-active" : ""}" type="button" data-period="${option}">${option}</button>`,
             )
             .join("")}
         </div>
@@ -1139,11 +1123,6 @@ function HealthAnalyticsCard() {
       <div class="bar-list">
         ${ComparisonBar("Upper Body", data.health.upper, max)}
         ${ComparisonBar("Lower Body", data.health.lower, max)}
-      </div>
-      <div class="divider"></div>
-      <div class="summary-row">
-        <span class="micro-label">Period</span>
-        <strong>${data.health.period}</strong>
       </div>
     `,
   });
@@ -1787,14 +1766,6 @@ function wireWorkspace() {
   document.querySelectorAll("[data-training]").forEach((button) => {
     button.addEventListener("click", () => {
       getOrCreateHealthEntry(getSelectedDate()).training = button.dataset.training;
-      markUnsavedChange("health");
-      rerenderWorkspace();
-    });
-  });
-
-  document.querySelectorAll("[data-period]").forEach((button) => {
-    button.addEventListener("click", () => {
-      getOrCreateHealthEntry(getSelectedDate()).period = button.dataset.period;
       markUnsavedChange("health");
       rerenderWorkspace();
     });

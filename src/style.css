@@ -1,14 +1,17 @@
 :root {
   color-scheme: light;
-  --app-bg: #f4f7fb;
+  --app-bg: #f4f8ff;
   --sidebar-bg: rgba(255, 255, 255, 0.88);
   --card-bg: #ffffff;
-  --text: #111111;
+  --text: #111827;
   --muted: #6b7280;
-  --hairline: #d8dce6;
-  --selected: #eef3fa;
-  --soft: #f7f9fc;
-  --accent-soft: #eaf2ff;
+  --hairline: #d8e0ea;
+  --selected: #dceeff;
+  --soft: #f7fafc;
+  --accent-soft: #dceeff;
+  --sky-soft: #bfdfff;
+  --yellow-soft: #fff3c4;
+  --yellow-warm: #ffe8a3;
   --shadow: 0 18px 44px rgba(25, 38, 66, 0.055);
   --sidebar-width: 280px;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
@@ -23,10 +26,21 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#app {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--app-bg);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 243, 196, 0.44), transparent 34%),
+    radial-gradient(circle at 82% 12%, rgba(220, 238, 255, 0.76), transparent 38%),
+    var(--app-bg);
   color: var(--text);
 }
 
@@ -35,9 +49,13 @@ input,
 select,
 textarea {
   font: inherit;
+  min-width: 0;
 }
 
 .app-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   min-height: 100vh;
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
@@ -107,12 +125,13 @@ textarea {
 }
 
 .nav-button:hover {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.76);
   transform: translateY(-1px);
 }
 
 .nav-button.is-active {
-  background: var(--selected);
+  background: linear-gradient(135deg, rgba(220, 238, 255, 0.94), rgba(255, 243, 196, 0.34));
+  box-shadow: inset 0 0 0 1px rgba(191, 223, 255, 0.72);
 }
 
 .nav-button.is-external {
@@ -155,16 +174,20 @@ textarea {
 .main {
   grid-column: 2;
   min-width: 0;
+  max-width: 100%;
   padding: 56px;
 }
 
 .content-wrap {
+  width: 100%;
   max-width: 1080px;
   margin: 0 auto;
+  min-width: 0;
 }
 
 .page-heading {
   margin-bottom: 38px;
+  max-width: 760px;
 }
 
 .eyebrow {
@@ -205,7 +228,7 @@ h1 {
   border: 1px solid var(--hairline);
   border-radius: 999px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.72);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(220, 238, 255, 0.45));
   color: var(--muted);
   font-size: 12px;
   line-height: 1.2;
@@ -241,6 +264,7 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  max-width: 100%;
 }
 
 .date-nav-button {
@@ -248,7 +272,7 @@ h1 {
   border: 1px solid var(--hairline);
   border-radius: 999px;
   padding: 0 15px;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.78);
   color: var(--text);
   font-size: 13px;
   font-weight: 650;
@@ -262,9 +286,9 @@ h1 {
 
 .date-nav-button:hover,
 .date-nav-button.is-active {
-  background: #ffffff;
-  border-color: rgba(17, 17, 17, 0.14);
-  box-shadow: 0 8px 18px rgba(25, 38, 66, 0.06);
+  background: linear-gradient(135deg, #ffffff, rgba(220, 238, 255, 0.74));
+  border-color: rgba(191, 223, 255, 0.95);
+  box-shadow: 0 8px 18px rgba(91, 135, 180, 0.1);
   transform: translateY(-1px);
 }
 
@@ -278,11 +302,13 @@ h1 {
   width: 100%;
   margin: 0 0 24px;
   break-inside: avoid;
-  padding: 24px;
+  padding: 26px;
   border: 1px solid var(--hairline);
-  border-radius: 20px;
-  background: var(--card-bg);
-  box-shadow: 0 12px 30px rgba(25, 38, 66, 0.04);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.94)),
+    var(--card-bg);
+  box-shadow: 0 16px 38px rgba(25, 38, 66, 0.045);
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
@@ -290,8 +316,8 @@ h1 {
 }
 
 .workspace-card:hover {
-  border-color: rgba(17, 17, 17, 0.12);
-  box-shadow: 0 18px 38px rgba(25, 38, 66, 0.065);
+  border-color: rgba(191, 223, 255, 0.95);
+  box-shadow: 0 22px 48px rgba(25, 38, 66, 0.07);
   transform: translateY(-2px);
 }
 
@@ -418,20 +444,20 @@ h1 {
   display: grid;
   place-items: center;
   border-radius: 13px;
-  background: var(--accent-soft);
+  background: linear-gradient(135deg, var(--accent-soft), rgba(255, 243, 196, 0.78));
   font-size: 19px;
 }
 
 .card-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 1.25;
   font-weight: 690;
 }
 
 .card-body {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .field-grid {
@@ -457,9 +483,10 @@ h1 {
 .select,
 .textarea {
   width: 100%;
+  max-width: 100%;
   border: 1px solid var(--hairline);
   border-radius: 14px;
-  background: #fbfcfe;
+  background: rgba(247, 250, 252, 0.86);
   color: var(--text);
   outline: none;
   transition:
@@ -486,8 +513,8 @@ h1 {
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: rgba(58, 99, 161, 0.28);
-  box-shadow: 0 0 0 4px rgba(58, 99, 161, 0.055);
+  border-color: rgba(191, 223, 255, 0.98);
+  box-shadow: 0 0 0 4px rgba(220, 238, 255, 0.7);
   background: #ffffff;
 }
 
@@ -507,7 +534,7 @@ h1 {
   overflow: hidden;
   border: 1px solid var(--hairline);
   border-radius: 18px;
-  background: #fbfcfe;
+  background: linear-gradient(180deg, #ffffff, rgba(247, 250, 252, 0.9));
   text-align: center;
 }
 
@@ -521,9 +548,9 @@ h1 {
 }
 
 .time-card:hover {
-  background: #ffffff;
-  border-color: rgba(17, 17, 17, 0.13);
-  box-shadow: 0 14px 30px rgba(25, 38, 66, 0.065);
+  background: linear-gradient(180deg, #ffffff, rgba(220, 238, 255, 0.34));
+  border-color: rgba(191, 223, 255, 0.95);
+  box-shadow: 0 14px 30px rgba(91, 135, 180, 0.1);
 }
 
 .time-card:active {
@@ -597,7 +624,7 @@ h1 {
   padding: 12px;
   border: 1px solid var(--hairline);
   border-radius: 16px;
-  background: #fbfcfe;
+  background: rgba(247, 250, 252, 0.82);
 }
 
 .session-row {
@@ -608,14 +635,20 @@ h1 {
 .tracker-page {
   display: grid;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .tracker-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: grid;
   gap: 16px;
   padding: 24px;
   border: 1px solid var(--hairline);
-  border-radius: 20px;
+  border-radius: 22px;
   background: var(--card-bg);
   box-shadow: var(--shadow);
 }
@@ -625,6 +658,7 @@ h1 {
   grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px) minmax(140px, 180px);
   gap: 10px;
   align-items: end;
+  min-width: 0;
 }
 
 .tracker-list {
@@ -640,7 +674,8 @@ h1 {
   padding: 12px;
   border: 1px solid var(--hairline);
   border-radius: 16px;
-  background: #fbfcfe;
+  background: rgba(247, 250, 252, 0.82);
+  min-width: 0;
 }
 
 .session-duration {
@@ -703,7 +738,7 @@ h1 {
   gap: 6px;
   padding: 5px;
   border-radius: 15px;
-  background: var(--soft);
+  background: rgba(220, 238, 255, 0.42);
 }
 
 .segmented.three {
@@ -724,7 +759,7 @@ h1 {
 .segment.is-active {
   background: #ffffff;
   color: var(--text);
-  box-shadow: 0 6px 16px rgba(25, 38, 66, 0.065);
+  box-shadow: 0 6px 16px rgba(91, 135, 180, 0.105);
 }
 
 .activity-list {
@@ -736,7 +771,7 @@ h1 {
 .activity-pill {
   border-radius: 999px;
   padding: 8px 12px;
-  background: var(--soft);
+  background: linear-gradient(135deg, rgba(220, 238, 255, 0.7), rgba(255, 243, 196, 0.5));
   font-size: 14px;
   font-weight: 650;
 }
@@ -757,18 +792,24 @@ h1 {
 
 .range {
   width: 100%;
-  accent-color: var(--text);
+  accent-color: #8bbfed;
 }
 
 .journal-page {
   display: grid;
   gap: 28px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .today-journal {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 38px;
   border: 1px solid var(--hairline);
-  border-radius: 20px;
+  border-radius: 22px;
   background: var(--card-bg);
   box-shadow: var(--shadow);
 }
@@ -797,12 +838,13 @@ h1 {
 
 .journal-textarea {
   width: 100%;
+  max-width: 100%;
   min-height: 360px;
   overflow: hidden;
   border: 0;
   border-radius: 18px;
   padding: 26px;
-  background: #fbfcfe;
+  background: rgba(247, 250, 252, 0.86);
   color: var(--text);
   outline: none;
   resize: none;
@@ -815,7 +857,7 @@ h1 {
 
 .journal-textarea:focus {
   background: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(58, 99, 161, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(191, 223, 255, 0.95);
 }
 
 .journal-textarea::placeholder {
@@ -842,6 +884,7 @@ h1 {
 
 .history-card {
   width: 100%;
+  max-width: 100%;
   border: 1px solid var(--hairline);
   border-radius: 18px;
   padding: 18px;
@@ -1008,7 +1051,7 @@ h1 {
   border: 1px solid var(--hairline);
   border-radius: 20px;
   padding: 18px;
-  background: #fbfcfe;
+  background: linear-gradient(180deg, #ffffff, rgba(247, 250, 252, 0.92));
 }
 
 .insight-metric span {
@@ -1231,7 +1274,7 @@ h1 {
   display: grid;
   place-items: center;
   border-radius: 18px;
-  background: #fbfcfe;
+  background: linear-gradient(180deg, #ffffff, rgba(247, 250, 252, 0.92));
 }
 
 .score-ring {
@@ -1319,7 +1362,7 @@ h1 {
   place-items: center;
   min-height: 90px;
   border-radius: 18px;
-  background: #fbfcfe;
+  background: linear-gradient(180deg, #ffffff, rgba(247, 250, 252, 0.92));
 }
 
 .metric-large {
@@ -1406,7 +1449,7 @@ h1 {
   align-content: center;
   gap: 8px;
   border-radius: 18px;
-  background: #fbfcfe;
+  background: linear-gradient(180deg, #ffffff, rgba(247, 250, 252, 0.92));
   text-align: center;
 }
 
@@ -1469,7 +1512,7 @@ h1 {
 .keyword {
   border-radius: 999px;
   padding: 9px 13px;
-  background: #fbfcfe;
+  background: linear-gradient(135deg, rgba(220, 238, 255, 0.58), rgba(255, 243, 196, 0.34));
   color: var(--text);
   font-size: 14px;
   font-weight: 650;
@@ -1569,7 +1612,9 @@ h1 {
     grid-auto-flow: column;
     grid-auto-columns: max-content;
     overflow-x: auto;
+    max-width: 100%;
     padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .nav-button {
@@ -1578,7 +1623,18 @@ h1 {
 
   .main {
     grid-column: 1;
-    padding: 24px 16px 36px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    padding: 24px clamp(14px, 4vw, 18px) 36px;
+  }
+
+  .content-wrap,
+  #pageContent,
+  .page-heading {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .workspace-grid {
@@ -1623,6 +1679,8 @@ h1 {
   .tracker-controls,
   .tracker-row {
     grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 100%;
   }
 
   .landing-card-grid {
@@ -1643,7 +1701,7 @@ h1 {
 
   .today-journal {
     padding: 22px;
-    border-radius: 26px;
+    border-radius: 22px;
   }
 
   .journal-textarea {
