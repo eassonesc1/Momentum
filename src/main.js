@@ -1306,24 +1306,6 @@ function renderWorkspace() {
   wireWorkspace();
 }
 
-function renderProfile() {
-  activePage = "Profile";
-  pageEyebrow.textContent = "Profile";
-  pageEyebrow.hidden = true;
-  pageTitle.textContent = "Profile";
-  pageSubtitle.textContent = "Your current Momentum workspace.";
-  pageSubtitle.hidden = false;
-  clearWorkspaceHeaderControls();
-  pageContent.innerHTML = `
-    <section class="content-card">
-      <div class="placeholder">
-        <p class="placeholder-title">Profile</p>
-        <p class="placeholder-copy">Profile settings will live here.</p>
-      </div>
-    </section>
-  `;
-}
-
 function renderComingSoon(page) {
   activePage = page;
   pageEyebrow.textContent = page;
@@ -1359,11 +1341,6 @@ function renderPage(page) {
 
   if (page === "Analytics") {
     renderAnalytics();
-    return;
-  }
-
-  if (page === "Profile" || page === "Job Tracker") {
-    renderProfile();
     return;
   }
 
@@ -1819,15 +1796,10 @@ function renderWorkspaceInfo() {
   const username = getUsername();
   const workspaceId = getWorkspaceId() || "--";
 
-  const headerNameNode = document.getElementById("headerUsername");
-  const headerIdNode = document.getElementById("headerUserId");
+  const headerAccountNode = document.getElementById("headerAccount");
 
-  if (headerNameNode) {
-    headerNameNode.textContent = username;
-  }
-
-  if (headerIdNode) {
-    headerIdNode.textContent = workspaceId;
+  if (headerAccountNode) {
+    headerAccountNode.textContent = `${username} · ID: ${workspaceId}`;
   }
 }
 

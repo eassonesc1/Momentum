@@ -20,10 +20,6 @@ export function MainWorkspace() {
             <span class="nav-icon" aria-hidden="true">📊</span>
             <span>Analytics</span>
           </button>
-          <button class="nav-button" type="button" data-page="Profile">
-            <span class="nav-icon" aria-hidden="true">💼</span>
-            <span>Profile</span>
-          </button>
         </nav>
 
         <div class="sidebar-meta" aria-label="Version information">
@@ -42,15 +38,8 @@ export function MainWorkspace() {
               </p>
               <div class="workspace-date-region" id="workspaceDateRegion"></div>
             </div>
-            <aside class="workspace-identity" aria-label="Current workspace identity">
-              <div>
-                <span>Username</span>
-                <strong id="headerUsername">--</strong>
-              </div>
-              <div>
-                <span>ID</span>
-                <strong id="headerUserId">--</strong>
-              </div>
+            <aside class="workspace-identity" aria-label="Current account">
+              <span id="headerAccount">-- · ID: --</span>
             </aside>
           </header>
 
