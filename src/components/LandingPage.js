@@ -48,8 +48,8 @@ export function LandingPage(activePanel = null, savedWorkspace = null, errorMess
                 ? `
                   <form class="landing-form" id="createWorkspaceForm">
                     <label class="field">
-                      <span class="field-label">Your Name</span>
-                      <input class="input" id="workspaceNameInput" autocomplete="name" />
+                      <span class="field-label">Username</span>
+                      <input class="input" id="workspaceNameInput" autocomplete="username" />
                     </label>
                     ${activePanel === "create" ? error : ""}
                     <button class="small-button" type="submit">Create Workspace</button>
@@ -64,7 +64,7 @@ export function LandingPage(activePanel = null, savedWorkspace = null, errorMess
               <span class="landing-card-icon" aria-hidden="true">📂</span>
               <span>
                 <strong>Open Workspace</strong>
-                <small>Continue using your Momentum ID.</small>
+                <small>Continue using your username or Momentum ID.</small>
               </span>
             </button>
             ${
@@ -72,8 +72,8 @@ export function LandingPage(activePanel = null, savedWorkspace = null, errorMess
                 ? `
                   <form class="landing-form" id="openWorkspaceForm">
                     <label class="field">
-                      <span class="field-label">Momentum ID</span>
-                      <input class="input" id="momentumIdInput" autocomplete="off" />
+                      <span class="field-label">Username or Momentum ID</span>
+                      <input class="input" id="momentumIdInput" autocomplete="username" />
                     </label>
                     ${activePanel === "open" ? error : ""}
                     <button class="small-button" type="submit">Open Workspace</button>

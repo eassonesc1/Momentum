@@ -12,9 +12,9 @@ export function MainWorkspace() {
             <span class="nav-icon" aria-hidden="true">🏠</span>
             <span>Daily</span>
           </button>
-          <button class="nav-button" type="button" data-page="Insights">
+          <button class="nav-button" type="button" data-page="Journal">
             <span class="nav-icon" aria-hidden="true">📝</span>
-            <span>Insights</span>
+            <span>Journal</span>
           </button>
           <button class="nav-button" type="button" data-page="Analytics">
             <span class="nav-icon" aria-hidden="true">📊</span>
@@ -31,7 +31,6 @@ export function MainWorkspace() {
             <span>Workspace</span>
             <strong id="sidebarWorkspaceName">Momentum</strong>
           </div>
-          <p class="sidebar-user-id" id="sidebarUserId">ID: --</p>
           <p>Momentum v0.1</p>
         </div>
       </aside>
@@ -39,12 +38,28 @@ export function MainWorkspace() {
       <main class="main">
         <div class="content-wrap">
           <header class="page-heading">
-            <p class="eyebrow" id="pageEyebrow">Workspace</p>
-            <h1 id="pageTitle">Workspace</h1>
-            <p class="page-subtitle" id="pageSubtitle">
-              Daily input and immediate feedback.
-            </p>
-            <div class="workspace-date-region" id="workspaceDateRegion"></div>
+            <div class="page-heading-copy">
+              <p class="eyebrow" id="pageEyebrow">Workspace</p>
+              <h1 id="pageTitle">Workspace</h1>
+              <p class="page-subtitle" id="pageSubtitle">
+                Daily input and immediate feedback.
+              </p>
+              <div class="workspace-date-region" id="workspaceDateRegion"></div>
+            </div>
+            <aside class="workspace-identity" aria-label="Current workspace identity">
+              <div>
+                <span>Workspace</span>
+                <strong id="headerWorkspaceName">Momentum</strong>
+              </div>
+              <div>
+                <span>Momentum ID</span>
+                <strong id="headerMomentumId">--</strong>
+              </div>
+              <div>
+                <span>Storage</span>
+                <strong id="headerStorage">--</strong>
+              </div>
+            </aside>
           </header>
 
           <section id="pageContent" aria-live="polite"></section>

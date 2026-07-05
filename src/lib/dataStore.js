@@ -33,6 +33,14 @@ export function normalizeUserId(userId) {
   return String(userId || "").trim().toLowerCase();
 }
 
+export function normalizeUsername(username) {
+  return String(username || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "");
+}
+
 function warnFallback(reason = "Supabase is not configured.") {
   if (fallbackWarningShown) {
     return;
@@ -86,6 +94,7 @@ function normalizeProfile(row) {
     id: row.id || null,
     userId: row.user_id,
     displayName: row.display_name || "Workspace",
+    username: row.display_name || "Workspace",
   };
 }
 
@@ -135,21 +144,32 @@ function normalizeApplication(row) {
 
 export async function createProfile(userId, displayName) {
   const normalizedUserId = normalizeUserId(userId);
+  const normalizedUsername = normalizeUsername(displayName);
 
   if (!normalizedUserId) {
     throw createStorageError("Please enter a Momentum ID.", "empty_user_id");
   }
 
+  if (!normalizedUsername) {
+    throw createStorageError("Please enter a username.", "empty_username");
+  }
+
   const profile = {
     userId: normalizedUserId,
-    displayName: displayName || "Workspace",
+    displayName: normalizedUsername,
   };
-  logPersistence("createProfile:start", { userId: normalizedUserId });
+  logPersistence("createProfile:start", {
+    userId: normalizedUserId,
+    username: normalizedUsername,
+  });
 
   if (!isSupabaseConfigured) {
     const profiles = readLocal("profiles", "items", []);
     const existingProfile = profiles.find(
       (item) => normalizeUserId(item.userId) === normalizedUserId,
+    );
+    const existingUsername = profiles.find(
+      (item) => normalizeUsername(item.displayName || item.username) === normalizedUsername,
     );
 
     if (existingProfile) {
@@ -160,6 +180,17 @@ export async function createProfile(userId, displayName) {
       throw createStorageError(
         "This Momentum ID is already taken. Please open it instead.",
         "profile_exists",
+      );
+    }
+
+    if (existingUsername) {
+      logPersistence("createProfile:username-exists", {
+        username: normalizedUsername,
+        result: existingUsername,
+      });
+      throw createStorageError(
+        "This username is already taken. Please open it instead.",
+        "username_exists",
       );
     }
 
@@ -179,15 +210,21 @@ export async function createProfile(userId, displayName) {
   }
 
   try {
-    const { data: existingProfile, error: existingError } = await supabase
+    const { data: existingProfiles, error: existingError } = await supabase
       .from("profiles")
       .select("id, user_id, display_name")
-      .ilike("user_id", normalizedUserId)
-      .maybeSingle();
+      .or(`user_id.ilike.${normalizedUserId},display_name.ilike.${normalizedUsername}`);
 
     if (existingError) {
       throw existingError;
     }
+
+    const existingProfile = (existingProfiles || []).find(
+      (item) => normalizeUserId(item.user_id) === normalizedUserId,
+    );
+    const existingUsername = (existingProfiles || []).find(
+      (item) => normalizeUsername(item.display_name) === normalizedUsername,
+    );
 
     if (existingProfile) {
       logPersistence("createProfile:exists", {
@@ -197,6 +234,17 @@ export async function createProfile(userId, displayName) {
       throw createStorageError(
         "This Momentum ID is already taken. Please open it instead.",
         "profile_exists",
+      );
+    }
+
+    if (existingUsername) {
+      logPersistence("createProfile:username-exists", {
+        username: normalizedUsername,
+        result: normalizeProfile(existingUsername),
+      });
+      throw createStorageError(
+        "This username is already taken. Please open it instead.",
+        "username_exists",
       );
     }
 
@@ -241,15 +289,21 @@ export async function createProfile(userId, displayName) {
 
 export async function loadProfile(userId) {
   const normalizedUserId = normalizeUserId(userId);
+  const normalizedUsername = normalizeUsername(userId);
 
   if (!normalizedUserId) {
-    throw createStorageError("Please enter a Momentum ID.", "empty_user_id");
+    throw createStorageError("Please enter a username or Momentum ID.", "empty_user_id");
   }
 
   const localProfile = readLocal("profiles", "items", []).find(
-    (item) => normalizeUserId(item.userId) === normalizedUserId,
+    (item) =>
+      normalizeUserId(item.userId) === normalizedUserId ||
+      normalizeUsername(item.displayName || item.username) === normalizedUsername,
   );
-  logPersistence("openProfile:start", { userId: normalizedUserId });
+  logPersistence("openProfile:start", {
+    userId: normalizedUserId,
+    username: normalizedUsername,
+  });
 
   if (!isSupabaseConfigured) {
     warnFallback("Supabase env vars are missing.");
@@ -265,14 +319,14 @@ export async function loadProfile(userId) {
     const { data, error } = await supabase
       .from("profiles")
       .select("id, user_id, display_name")
-      .ilike("user_id", normalizedUserId)
-      .maybeSingle();
+      .or(`user_id.ilike.${normalizedUserId},display_name.ilike.${normalizedUsername}`)
+      .limit(1);
 
     if (error) {
       throw error;
     }
 
-    const normalized = normalizeProfile(data);
+    const normalized = normalizeProfile((data || [])[0]);
     logPersistence(normalized ? "openProfile:found" : "openProfile:not-found", {
       userId: normalizedUserId,
       backend: "Supabase",

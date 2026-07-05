@@ -1,6 +1,5 @@
 import {
   createProfile,
-  deleteJobApplication,
   loadDailyEntries,
   loadDailyEntry,
   loadJobApplications,
@@ -8,7 +7,6 @@ import {
   loadProfile,
   normalizeUserId,
   saveDailyEntry,
-  saveJobApplication,
   saveJournalEntry,
 } from "./lib/dataStore.js";
 import { supabaseConfig } from "./lib/supabase.js";
@@ -56,15 +54,14 @@ const state = {
     sessions: [],
   },
   career: {
-    company: "",
-    position: "",
-    status: "Saved",
-    applications: [],
-  },
-  jobTracker: {
-    search: "",
-    filter: "All",
-    sort: "Newest",
+    entries: [
+      {
+        date: getTodayISO(),
+        applicationsSubmitted: 0,
+        interviews: 0,
+        offers: 0,
+      },
+    ],
   },
   health: {
     entries: [
@@ -217,6 +214,26 @@ function getOrCreateHealthEntry(date) {
   return entry;
 }
 
+function getCareerEntry(date) {
+  return state.career.entries.find((entry) => entry.date === date);
+}
+
+function getOrCreateCareerEntry(date) {
+  let entry = getCareerEntry(date);
+
+  if (!entry) {
+    entry = {
+      date,
+      applicationsSubmitted: 0,
+      interviews: 0,
+      offers: 0,
+    };
+    state.career.entries.push(entry);
+  }
+
+  return entry;
+}
+
 function getMoodEntry(date) {
   return state.mood.entries.find((entry) => entry.date === date);
 }
@@ -262,6 +279,7 @@ function getDailyDataForDate(date) {
   return {
     sleep: getSleepEntry(date) || null,
     focusSessions: state.focus.sessions.filter((session) => session.date === date),
+    career: getCareerEntry(date) || null,
     health: getHealthEntry(date) || null,
     mood: getMoodEntry(date) || null,
   };
@@ -298,6 +316,15 @@ function applyDailyEntry(entry) {
     healthEntry.training = data.health.training || healthEntry.training;
   }
 
+  if (data.career) {
+    const careerEntry = getOrCreateCareerEntry(date);
+    careerEntry.applicationsSubmitted = Number(
+      data.career.applicationsSubmitted ?? data.career.applied ?? 0,
+    );
+    careerEntry.interviews = Number(data.career.interviews ?? data.career.interview ?? 0);
+    careerEntry.offers = Number(data.career.offers ?? 0);
+  }
+
   if (data.mood) {
     upsertMoodEntry({
       date,
@@ -324,14 +351,22 @@ function applyJournalEntries(entries) {
 }
 
 function applyJobApplications(applications) {
-  state.career.applications = applications.map((application) => ({
-    id: application.id || createId("career"),
-    date: application.date || getTodayISO(),
-    company: application.company || "",
-    position: application.position || "",
-    status: application.status || "Saved",
-    notes: application.notes || "",
-  }));
+  applications.forEach((application) => {
+    const entry = getOrCreateCareerEntry(application.date || getTodayISO());
+    const status = application.status || "";
+
+    if (status === "Applied") {
+      entry.applicationsSubmitted += 1;
+    }
+
+    if (status === "Interview") {
+      entry.interviews += 1;
+    }
+
+    if (status === "Offer") {
+      entry.offers += 1;
+    }
+  });
 }
 
 async function loadUserData() {
@@ -484,8 +519,8 @@ function getAnalyticsData() {
   const focusSessions = state.focus.sessions.filter((session) =>
     isWithinRange(session.date, range),
   );
-  const careerItems = state.career.applications.filter((application) =>
-    isWithinRange(application.date, range),
+  const careerEntries = state.career.entries.filter((entry) =>
+    isWithinRange(entry.date, range),
   );
   const healthEntries = state.health.entries.filter((entry) =>
     isWithinRange(entry.date, range),
@@ -533,10 +568,18 @@ function getAnalyticsData() {
         ),
     },
     career: {
-      saved: careerItems.filter((item) => item.status === "Saved").length,
-      applied: careerItems.filter((item) => item.status === "Applied").length,
-      interview: careerItems.filter((item) => item.status === "Interview")
-        .length,
+      applied: careerEntries.reduce(
+        (sum, entry) => sum + Number(entry.applicationsSubmitted || 0),
+        0,
+      ),
+      interview: careerEntries.reduce(
+        (sum, entry) => sum + Number(entry.interviews || 0),
+        0,
+      ),
+      offers: careerEntries.reduce(
+        (sum, entry) => sum + Number(entry.offers || 0),
+        0,
+      ),
     },
     health: {
       upper: healthEntries.filter((entry) => entry.training === "Upper").length,
@@ -665,20 +708,6 @@ function getRangeDates(range) {
   return dates;
 }
 
-function getRangeTitle(range) {
-  if (state.analytics.range === "week") {
-    return "This week";
-  }
-
-  if (state.analytics.range === "custom") {
-    return "Selected days";
-  }
-
-  return new Intl.DateTimeFormat("en-GB", { month: "long" }).format(
-    new Date(`${range.to}T00:00:00`),
-  );
-}
-
 function getFocusTotal(data) {
   return data.focus.study + data.focus.work;
 }
@@ -686,129 +715,6 @@ function getFocusTotal(data) {
 function formatHours(minutes) {
   const hours = minutes / 60;
   return `${hours % 1 === 0 ? hours.toFixed(0) : hours.toFixed(1)}h`;
-}
-
-function getCareerProgress(data) {
-  const total = data.career.saved + data.career.applied + data.career.interview;
-
-  if (!total) {
-    return "No career activity yet";
-  }
-
-  if (data.career.interview) {
-    return `${data.career.interview} interview${data.career.interview === 1 ? "" : "s"}`;
-  }
-
-  if (data.career.applied) {
-    return `${data.career.applied} applied`;
-  }
-
-  return `${data.career.saved} saved`;
-}
-
-function getHealthActivity(data) {
-  const sessions = data.health.upper + data.health.lower;
-
-  if (!sessions) {
-    return "No activity yet";
-  }
-
-  return `${sessions} training${sessions === 1 ? "" : "s"}`;
-}
-
-function getHeroInsight(data) {
-  const focusTotal = getFocusTotal(data);
-  const moodAverage = Number(data.mood.average);
-
-  if (focusTotal >= 60 * 10 && moodAverage >= 6.5) {
-    return "Good progress.";
-  }
-
-  if (focusTotal >= 60 * 4) {
-    return "Momentum is building.";
-  }
-
-  if (moodAverage > 0 && moodAverage < 5) {
-    return "A quieter stretch.";
-  }
-
-  return "A gentle start.";
-}
-
-function getActivityIntensity(date) {
-  const focusMinutes = state.focus.sessions
-    .filter((session) => session.date === date)
-    .reduce((sum, session) => sum + minutesBetween(session.start, session.end), 0);
-  const careerCount = state.career.applications.filter(
-    (application) => application.date === date,
-  ).length;
-  const healthEntry = getHealthEntry(date);
-  const healthCount = healthEntry
-    ? Number(healthEntry.training !== "Rest")
-    : 0;
-  const moodCount = state.mood.entries.some(
-    (entry) => entry.date === date && entry.persisted,
-  )
-    ? 1
-    : 0;
-
-  return Math.min(
-    4,
-    Math.ceil(focusMinutes / 120) + careerCount + healthCount + moodCount,
-  );
-}
-
-function ActivityHeatmapCard() {
-  const range = getRangeBounds();
-  const dates = getRangeDates(range);
-
-  return `
-    <section class="insights-feature-card" aria-label="Activity heatmap">
-      <div class="insights-section-heading">
-        <p>Activity Heatmap</p>
-        <h2>Your month, at a glance.</h2>
-      </div>
-      <div class="activity-heatmap">
-        ${dates
-          .map((date) => {
-            const day = new Date(`${date}T00:00:00`).getDate();
-            return `<span class="heatmap-cell level-${getActivityIntensity(date)}" title="${date}" aria-label="${date}">${day}</span>`;
-          })
-          .join("")}
-      </div>
-    </section>
-  `;
-}
-
-function InsightsObservationsCard() {
-  const data = getAnalyticsData();
-  const focusTotal = getFocusTotal(data);
-  const observations = [
-    focusTotal
-      ? `Your focused work is strongest when sessions are captured consistently.`
-      : `Start with one focused session and Momentum will begin finding patterns.`,
-    Number(data.mood.average) >= 6
-      ? `Mood remained steady across the saved days.`
-      : `Mood has room to recover; gentle routines may matter this week.`,
-    data.health.upper + data.health.lower
-      ? `Movement is part of this rhythm.`
-      : `Health activity is still quiet in this range.`,
-    data.sleep.averageDuration === "Not enough data"
-      ? `Sleep patterns will become clearer after a few saved nights.`
-      : `Average sleep gives you a useful baseline for the next reflection.`,
-  ];
-
-  return `
-    <section class="insights-feature-card" aria-label="Reflective insights">
-      <div class="insights-section-heading">
-        <p>Insights</p>
-        <h2>Patterns worth noticing.</h2>
-      </div>
-      <div class="insight-observations">
-        ${observations.map((item) => `<p>${item}</p>`).join("")}
-      </div>
-    </section>
-  `;
 }
 
 function AnalyticsCard({ title, children, wide = false }) {
@@ -986,155 +892,43 @@ function FocusCard() {
 
 function CareerCard() {
   const selectedDate = getSelectedDate();
-  const saved = state.career.applications.filter(
-    (application) =>
-      application.date === selectedDate && application.status === "Saved",
-  ).length;
-  const applied = state.career.applications.filter(
-    (application) =>
-      application.date === selectedDate && application.status === "Applied",
-  ).length;
-  const interview = state.career.applications.filter(
-    (application) =>
-      application.date === selectedDate && application.status === "Interview",
-  ).length;
-  const hasActivity = saved + applied + interview > 0;
+  const career = getOrCreateCareerEntry(selectedDate);
+  const hasActivity =
+    career.applicationsSubmitted + career.interviews + career.offers > 0;
 
   return Card({
     icon: "💼",
     title: "Career",
     children: `
-      <div class="field-grid">
+      <div class="counter-grid">
         <label class="field">
-          <span class="field-label">Company</span>
-          <input class="input" id="careerCompany" value="${state.career.company}" />
+          <span class="field-label">Applications submitted today</span>
+          <input class="input counter-input" id="careerApplicationsSubmitted" type="number" min="0" inputmode="numeric" value="${career.applicationsSubmitted}" />
         </label>
         <label class="field">
-          <span class="field-label">Position</span>
-          <input class="input" id="careerPosition" value="${state.career.position}" />
+          <span class="field-label">Interviews today</span>
+          <input class="input counter-input" id="careerInterviews" type="number" min="0" inputmode="numeric" value="${career.interviews}" />
+        </label>
+        <label class="field">
+          <span class="field-label">Offers received today</span>
+          <input class="input counter-input" id="careerOffers" type="number" min="0" inputmode="numeric" value="${career.offers}" />
         </label>
       </div>
-      <div class="segmented three" id="careerStatus" aria-label="Status">
-        <button class="segment ${state.career.status === "Saved" ? "is-active" : ""}" type="button" data-status="Saved">Saved</button>
-        <button class="segment ${state.career.status === "Applied" ? "is-active" : ""}" type="button" data-status="Applied">Applied</button>
-        <button class="segment ${state.career.status === "Interview" ? "is-active" : ""}" type="button" data-status="Interview">Interview</button>
-      </div>
-      <button class="small-button" type="button" id="addApplication">Add Application</button>
       <div class="divider"></div>
       <div class="output">
         ${
           hasActivity
             ? `
               <p class="output-title">Today</p>
-              <div class="summary-row"><span>Applied Today</span><strong>${applied}</strong></div>
-              <div class="summary-row"><span>Saved Today</span><strong>${saved}</strong></div>
-              <div class="summary-row"><span>Interview Today</span><strong>${interview}</strong></div>
+              <div class="summary-row"><span>Applications</span><strong>${career.applicationsSubmitted}</strong></div>
+              <div class="summary-row"><span>Interviews</span><strong>${career.interviews}</strong></div>
+              <div class="summary-row"><span>Offers</span><strong>${career.offers}</strong></div>
             `
             : `<p class="empty-state">No career activity yet today.</p>`
         }
       </div>
     `,
   });
-}
-
-function statusOptions(selected) {
-  return ["Saved", "Applied", "Interview"]
-    .map(
-      (status) =>
-        `<option value="${status}" ${selected === status ? "selected" : ""}>${status}</option>`,
-    )
-    .join("");
-}
-
-function getFilteredApplications() {
-  const query = state.jobTracker.search.trim().toLowerCase();
-  const filtered = state.career.applications.filter((application) => {
-    const matchesQuery =
-      !query ||
-      application.company.toLowerCase().includes(query) ||
-      application.position.toLowerCase().includes(query);
-    const matchesFilter =
-      state.jobTracker.filter === "All" ||
-      application.status === state.jobTracker.filter;
-
-    return matchesQuery && matchesFilter;
-  });
-
-  return [...filtered].sort((a, b) => {
-    if (state.jobTracker.sort === "Oldest") {
-      return a.date.localeCompare(b.date);
-    }
-
-    if (state.jobTracker.sort === "Company") {
-      return a.company.localeCompare(b.company);
-    }
-
-    return b.date.localeCompare(a.date);
-  });
-}
-
-function JobTrackerRow(application) {
-  return `
-    <div class="tracker-row" data-application-id="${application.id}">
-      <label class="field">
-        <span class="field-label">Company</span>
-        <input class="input tracker-company" value="${escapeHTML(application.company)}" />
-      </label>
-      <label class="field">
-        <span class="field-label">Position</span>
-        <input class="input tracker-position" value="${escapeHTML(application.position)}" />
-      </label>
-      <label class="field">
-        <span class="field-label">Status</span>
-        <select class="select tracker-status">${statusOptions(application.status)}</select>
-      </label>
-      <label class="field">
-        <span class="field-label">Date</span>
-        <input class="input tracker-date" type="date" value="${application.date}" />
-      </label>
-      <button class="icon-button delete-application" type="button" aria-label="Delete application">×</button>
-    </div>
-  `;
-}
-
-function JobTrackerPage() {
-  const applications = getFilteredApplications();
-
-  return `
-    <div class="tracker-page">
-      <section class="tracker-card" aria-label="Job Tracker">
-        <div class="tracker-controls">
-          <label class="field">
-            <span class="field-label">Search</span>
-            <input class="input" id="jobSearch" value="${escapeHTML(state.jobTracker.search)}" placeholder="Company or position" />
-          </label>
-          <label class="field">
-            <span class="field-label">Filter</span>
-            <select class="select" id="jobFilter">
-              <option value="All" ${state.jobTracker.filter === "All" ? "selected" : ""}>All</option>
-              ${statusOptions(state.jobTracker.filter)}
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Sort</span>
-            <select class="select" id="jobSort">
-              <option ${state.jobTracker.sort === "Newest" ? "selected" : ""}>Newest</option>
-              <option ${state.jobTracker.sort === "Oldest" ? "selected" : ""}>Oldest</option>
-              <option ${state.jobTracker.sort === "Company" ? "selected" : ""}>Company</option>
-            </select>
-          </label>
-        </div>
-        <div class="divider"></div>
-        <div class="tracker-list">
-          ${
-            applications.length
-              ? applications.map((application) => JobTrackerRow(application)).join("")
-              : `<p class="empty-state">No applications yet.</p>`
-          }
-        </div>
-      </section>
-    </div>
-  `;
 }
 
 function HealthCard() {
@@ -1259,9 +1053,9 @@ function CareerAnalyticsCard() {
     title: "Career",
     children: `
       <div class="stats-row">
-        ${StatTile("Applied", data.career.applied)}
-        ${StatTile("Saved", data.career.saved)}
-        ${StatTile("Interview", data.career.interview)}
+        ${StatTile("Applications", data.career.applied)}
+        ${StatTile("Interviews", data.career.interview)}
+        ${StatTile("Offers", data.career.offers)}
       </div>
     `,
   });
@@ -1459,21 +1253,6 @@ function clearWorkspaceHeaderControls() {
   }
 }
 
-function renderInsights() {
-  activePage = "Insights";
-  pageEyebrow.textContent = "Insights";
-  pageEyebrow.hidden = true;
-  pageTitle.textContent = "Insights";
-  pageSubtitle.textContent = "Quiet reflections and weekly reviews will live here.";
-  pageSubtitle.hidden = false;
-  clearWorkspaceHeaderControls();
-  pageContent.innerHTML = `
-    <div class="insights-page">
-      ${InsightsObservationsCard()}
-    </div>
-  `;
-}
-
 function renderAnalytics() {
   activePage = "Analytics";
   const data = getAnalyticsData();
@@ -1530,8 +1309,6 @@ function renderWorkspace() {
 
 function renderProfile() {
   activePage = "Profile";
-  const workspaceName = getWorkspaceName();
-  const userId = getWorkspaceId() || "--";
   pageEyebrow.textContent = "Profile";
   pageEyebrow.hidden = true;
   pageTitle.textContent = "Profile";
@@ -1539,28 +1316,13 @@ function renderProfile() {
   pageSubtitle.hidden = false;
   clearWorkspaceHeaderControls();
   pageContent.innerHTML = `
-    <div class="tracker-page">
-      <section class="tracker-card" aria-label="Profile">
-        <div class="profile-list">
-          <div class="summary-row"><span>Workspace</span><strong>${escapeHTML(workspaceName)}</strong></div>
-          <div class="summary-row"><span>Momentum ID</span><strong>${escapeHTML(userId)}</strong></div>
-          <div class="summary-row"><span>Storage</span><strong>${escapeHTML(supabaseConfig.activeBackend)}</strong></div>
-        </div>
-      </section>
-      ${JobTrackerPage()}
-    </div>
+    <section class="content-card">
+      <div class="placeholder">
+        <p class="placeholder-title">Profile</p>
+        <p class="placeholder-copy">Workspace identity is available in the header.</p>
+      </div>
+    </section>
   `;
-  wireJobTracker();
-}
-
-function rerenderJobTracker({ focusSearch = false } = {}) {
-  renderProfile();
-
-  if (focusSearch) {
-    const search = document.getElementById("jobSearch");
-    search?.focus();
-    search?.setSelectionRange(search.value.length, search.value.length);
-  }
 }
 
 function renderComingSoon(page) {
@@ -1591,8 +1353,8 @@ function renderPage(page) {
     return;
   }
 
-  if (page === "Insights" || page === "Journal") {
-    renderInsights();
+  if (page === "Journal" || page === "Insights") {
+    renderJournal();
     return;
   }
 
@@ -1675,14 +1437,10 @@ async function autoSaveChanges() {
   try {
     if (
       dirtyModules.some((moduleName) =>
-        ["sleep", "focus", "health", "mood"].includes(moduleName),
+        ["sleep", "focus", "career", "health", "mood"].includes(moduleName),
       )
     ) {
       await saveSelectedDailyEntry();
-    }
-
-    if (dirtyModules.includes("career")) {
-      await saveCareerApplications();
     }
 
     if (dirtyModules.includes("journal")) {
@@ -1716,25 +1474,6 @@ async function saveSelectedDailyEntry() {
   if (mood) {
     mood.persisted = true;
     mood.workspaceId = userId;
-  }
-}
-
-async function saveCareerApplications() {
-  const userId = getWorkspaceId();
-
-  if (!userId) {
-    return;
-  }
-
-  const savedApplications = [];
-
-  for (const application of state.career.applications) {
-    const savedApplication = await saveJobApplication(userId, application);
-    savedApplications.push(savedApplication);
-  }
-
-  if (savedApplications.length) {
-    applyJobApplications(savedApplications);
   }
 }
 
@@ -1950,40 +1689,19 @@ function wireWorkspace() {
     });
   });
 
-  document.getElementById("careerCompany")?.addEventListener("input", (event) => {
-    state.career.company = event.target.value;
-    markUnsavedChange("career");
-  });
-
-  document.getElementById("careerPosition")?.addEventListener("input", (event) => {
-    state.career.position = event.target.value;
-    markUnsavedChange("career");
-  });
-
-  document.querySelectorAll("[data-status]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.career.status = button.dataset.status;
+  [
+    ["careerApplicationsSubmitted", "applicationsSubmitted"],
+    ["careerInterviews", "interviews"],
+    ["careerOffers", "offers"],
+  ].forEach(([inputId, key]) => {
+    document.getElementById(inputId)?.addEventListener("input", (event) => {
+      getOrCreateCareerEntry(getSelectedDate())[key] = Math.max(
+        0,
+        Number(event.target.value || 0),
+      );
       markUnsavedChange("career");
       rerenderWorkspace();
     });
-  });
-
-  document.getElementById("addApplication")?.addEventListener("click", () => {
-    if (!state.career.company.trim() && !state.career.position.trim()) {
-      return;
-    }
-
-    state.career.applications.push({
-      id: createId("career"),
-      date: getSelectedDate(),
-      company: state.career.company.trim(),
-      position: state.career.position.trim(),
-      status: state.career.status,
-    });
-    state.career.company = "";
-    state.career.position = "";
-    markUnsavedChange("career");
-    rerenderWorkspace();
   });
 
   document.querySelectorAll("[data-training]").forEach((button) => {
@@ -2000,70 +1718,6 @@ function wireWorkspace() {
     markUnsavedChange("mood");
   });
 
-}
-
-function findApplication(id) {
-  return state.career.applications.find((application) => application.id === id);
-}
-
-function wireJobTracker() {
-  document.getElementById("jobSearch")?.addEventListener("input", (event) => {
-    state.jobTracker.search = event.target.value;
-    rerenderJobTracker({ focusSearch: true });
-  });
-
-  document.getElementById("jobFilter")?.addEventListener("change", (event) => {
-    state.jobTracker.filter = event.target.value;
-    rerenderJobTracker();
-  });
-
-  document.getElementById("jobSort")?.addEventListener("change", (event) => {
-    state.jobTracker.sort = event.target.value;
-    rerenderJobTracker();
-  });
-
-  document.querySelectorAll("[data-application-id]").forEach((row) => {
-    const application = findApplication(row.dataset.applicationId);
-
-    if (!application) {
-      return;
-    }
-
-    row.querySelector(".tracker-company")?.addEventListener("input", (event) => {
-      application.company = event.target.value;
-      markUnsavedChange("career");
-    });
-
-    row.querySelector(".tracker-position")?.addEventListener("input", (event) => {
-      application.position = event.target.value;
-      markUnsavedChange("career");
-    });
-
-    row.querySelector(".tracker-status")?.addEventListener("change", (event) => {
-      application.status = event.target.value;
-      markUnsavedChange("career");
-      rerenderJobTracker();
-    });
-
-    row.querySelector(".tracker-date")?.addEventListener("input", (event) => {
-      application.date = event.target.value;
-      markUnsavedChange("career");
-      rerenderJobTracker();
-    });
-
-    row.querySelector(".delete-application")?.addEventListener("click", async () => {
-      state.career.applications = state.career.applications.filter(
-        (item) => item.id !== application.id,
-      );
-      try {
-        await deleteJobApplication(getWorkspaceId(), application.id);
-      } catch (error) {
-        setSaveStatus("error");
-        console.error(error);
-      }
-      rerenderJobTracker();
-    });
-  });
 }
 
 function autoGrowTextarea(textarea) {
@@ -2163,16 +1817,27 @@ function getSavedWorkspace() {
 
 function renderWorkspaceInfo() {
   const workspaceName = getWorkspaceName();
+  const workspaceId = getWorkspaceId() || "--";
 
   const nameNode = document.getElementById("sidebarWorkspaceName");
-  const userIdNode = document.getElementById("sidebarUserId");
+  const headerNameNode = document.getElementById("headerWorkspaceName");
+  const headerIdNode = document.getElementById("headerMomentumId");
+  const headerStorageNode = document.getElementById("headerStorage");
 
   if (nameNode) {
     nameNode.textContent = workspaceName;
   }
 
-  if (userIdNode) {
-    userIdNode.textContent = `ID: ${getWorkspaceId() || "--"}`;
+  if (headerNameNode) {
+    headerNameNode.textContent = workspaceName;
+  }
+
+  if (headerIdNode) {
+    headerIdNode.textContent = workspaceId;
+  }
+
+  if (headerStorageNode) {
+    headerStorageNode.textContent = supabaseConfig.activeBackend;
   }
 }
 
@@ -2192,7 +1857,7 @@ function wireLandingPage() {
 
     if (!momentumId) {
       landingPanel = "open";
-      landingError = "Please enter a Momentum ID.";
+      landingError = "Please enter a username or Momentum ID.";
       renderApp();
       wireLandingPage();
       return;
@@ -2202,7 +1867,7 @@ function wireLandingPage() {
       .then((profile) => {
         if (!profile) {
           landingPanel = "open";
-          landingError = "No workspace found for this ID. Please create it first.";
+          landingError = "No workspace found for this username or ID. Please create it first.";
           console.info("[Momentum persistence] openProfile:not-found", {
             userId: momentumId,
           });
@@ -2245,8 +1910,16 @@ function wireLandingPage() {
   document.getElementById("createWorkspaceForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const workspaceName =
-      document.getElementById("workspaceNameInput")?.value.trim() || "Workspace";
+    const workspaceName = document.getElementById("workspaceNameInput")?.value.trim() || "";
+
+    if (!workspaceName) {
+      landingPanel = "create";
+      landingError = "Please enter a username.";
+      renderApp();
+      wireLandingPage();
+      return;
+    }
+
     createUniqueProfile(workspaceName)
       .then((profile) => {
         landingError = "";
@@ -2275,25 +1948,25 @@ function wireLandingPage() {
   document.getElementById("openWorkspaceForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const momentumId = normalizeUserId(
+    const workspaceIdentity = normalizeUserId(
       document.getElementById("momentumIdInput")?.value,
     );
 
-    if (!momentumId) {
+    if (!workspaceIdentity) {
       landingPanel = "open";
-      landingError = "Please enter a Momentum ID.";
+      landingError = "Please enter a username or Momentum ID.";
       renderApp();
       wireLandingPage();
       return;
     }
 
-    loadProfile(momentumId)
+    loadProfile(workspaceIdentity)
       .then((profile) => {
         if (!profile) {
           landingPanel = "open";
-          landingError = "No workspace found for this ID. Please create it first.";
+          landingError = "No workspace found for this username or ID. Please create it first.";
           console.info("[Momentum persistence] openProfile:not-found", {
-            userId: momentumId,
+            identity: workspaceIdentity,
           });
           renderApp();
           wireLandingPage();
@@ -2303,10 +1976,10 @@ function wireLandingPage() {
         landingError = "";
         saveWorkspace({
           workspaceName: profile.displayName || getWorkspaceName(),
-          momentumId: profile.userId || momentumId,
+          momentumId: profile.userId || workspaceIdentity,
         });
         console.info("[Momentum persistence] loadProfile result", {
-          userId: momentumId,
+          identity: workspaceIdentity,
           profile,
         });
         enterWorkspace();
