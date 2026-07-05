@@ -21,8 +21,10 @@ Create a Supabase project, then add these variables to `.env`:
 
 ```bash
 VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_ANON_KEY=your_supabase_publishable_key
 ```
+
+Use the browser-safe publishable key from Supabase. Do not use the service role key in this Vite app.
 
 Run the schema in Supabase SQL Editor:
 
