@@ -57,6 +57,7 @@ textarea {
   font: inherit;
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
 }
 
 button,
@@ -597,6 +598,8 @@ h1 {
 .field {
   display: grid;
   gap: 7px;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -613,6 +616,8 @@ h1 {
 .textarea {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border: 1px solid var(--hairline);
   border-radius: 14px;
   background: rgba(247, 250, 252, 0.86);
@@ -622,6 +627,13 @@ h1 {
     border-color 140ms ease,
     box-shadow 140ms ease,
     background 140ms ease;
+}
+
+.input[type="time"],
+.session-row .select {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
 }
 
 .input,
@@ -796,6 +808,14 @@ h1 {
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+}
+
+.session-row .input,
+.session-row .select {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
 }
 
 .tracker-page {
@@ -1703,12 +1723,27 @@ h1 {
     grid-template-columns: 1fr 1fr;
   }
 
-  .session-row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
   .insights-feature-grid {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .session-row {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: hidden;
+  }
+
+  .session-row > *,
+  .session-row .field,
+  .session-row .input,
+  .session-row .select,
+  .session-duration,
+  .icon-button.delete-focus-session {
+    justify-self: stretch;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 }
 
