@@ -1,4 +1,17 @@
-export function LandingPage(activePanel = null, savedWorkspace = null) {
+function escapeHTML(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+export function LandingPage(activePanel = null, savedWorkspace = null, errorMessage = "") {
+  const error = errorMessage
+    ? `<p class="landing-error" role="alert">${escapeHTML(errorMessage)}</p>`
+    : "";
+
   return `
     <main class="landing-page" aria-label="Momentum landing page">
       <section class="landing-content">
@@ -42,6 +55,7 @@ export function LandingPage(activePanel = null, savedWorkspace = null) {
                       <span class="field-label">User ID</span>
                       <input class="input" id="createUserIdInput" autocomplete="off" placeholder="MOM-7KQ92" />
                     </label>
+                    ${activePanel === "create" ? error : ""}
                     <button class="small-button" type="submit">Create Workspace</button>
                   </form>
                 `
@@ -65,6 +79,7 @@ export function LandingPage(activePanel = null, savedWorkspace = null) {
                       <span class="field-label">Momentum ID</span>
                       <input class="input" id="momentumIdInput" autocomplete="off" />
                     </label>
+                    ${activePanel === "open" ? error : ""}
                     <button class="small-button" type="submit">Open Workspace</button>
                   </form>
                 `

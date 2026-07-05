@@ -479,6 +479,18 @@ h1 {
   padding-top: 4px;
 }
 
+.landing-error {
+  margin: 0;
+  border: 1px solid rgba(232, 141, 151, 0.38);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #9f2f3d;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
 .card-header {
   width: 100%;
   max-width: 100%;

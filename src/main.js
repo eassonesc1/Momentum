@@ -6,6 +6,7 @@ import {
   loadJobApplications,
   loadJournalEntries,
   loadProfile,
+  normalizeUserId,
   saveDailyEntry,
   saveJobApplication,
   saveJournalEntry,
@@ -15,12 +16,13 @@ import { LandingPage } from "./components/LandingPage.js";
 import { MainWorkspace } from "./components/MainWorkspace.js";
 
 let landingPanel = null;
+let landingError = "";
 let workspaceSelected = false;
 
 function App() {
   return workspaceSelected
     ? MainWorkspace()
-    : LandingPage(landingPanel, getSavedWorkspace());
+    : LandingPage(landingPanel, getSavedWorkspace(), landingError);
 }
 
 function renderApp() {
@@ -2141,12 +2143,57 @@ async function enterWorkspace() {
 
 function wireLandingPage() {
   document.querySelector("[data-continue-workspace]")?.addEventListener("click", () => {
-    enterWorkspace();
+    landingError = "";
+    const savedWorkspace = getSavedWorkspace();
+    const momentumId = normalizeUserId(savedWorkspace?.momentumId);
+
+    if (!momentumId) {
+      landingPanel = "open";
+      landingError = "Please enter a Momentum ID.";
+      renderApp();
+      wireLandingPage();
+      return;
+    }
+
+    loadProfile(momentumId)
+      .then((profile) => {
+        if (!profile) {
+          landingPanel = "open";
+          landingError = "No workspace found for this ID. Please create it first.";
+          console.info("[Momentum persistence] openProfile:not-found", {
+            userId: momentumId,
+          });
+          renderApp();
+          wireLandingPage();
+          return;
+        }
+
+        saveWorkspace({
+          workspaceName: profile.displayName || savedWorkspace.workspaceName,
+          momentumId: profile.userId || momentumId,
+        });
+        console.info("[Momentum persistence] loadProfile result", {
+          userId: momentumId,
+          profile,
+        });
+        enterWorkspace();
+      })
+      .catch((error) => {
+        landingPanel = "open";
+        landingError =
+          error?.message ||
+          "Could not open this workspace. Please check the console.";
+        setSaveStatus("error");
+        console.error("[Momentum persistence] loadProfile failed", error);
+        renderApp();
+        wireLandingPage();
+      });
   });
 
   document.querySelectorAll("[data-landing-card]").forEach((card) => {
     card.addEventListener("click", () => {
       landingPanel = card.dataset.landingCard;
+      landingError = "";
       renderApp();
       wireLandingPage();
     });
@@ -2157,42 +2204,75 @@ function wireLandingPage() {
 
     const workspaceName =
       document.getElementById("workspaceNameInput")?.value.trim() || "Workspace";
-    const momentumId =
-      document.getElementById("createUserIdInput")?.value.trim() ||
-      generateMomentumId();
+    const momentumId = normalizeUserId(
+      document.getElementById("createUserIdInput")?.value,
+    );
+
+    if (!momentumId) {
+      landingPanel = "create";
+      landingError = "Please enter a Momentum ID.";
+      renderApp();
+      wireLandingPage();
+      return;
+    }
 
     createProfile(momentumId, workspaceName)
       .then((profile) => {
-    saveWorkspace({
-      workspaceName: profile?.displayName || workspaceName,
-      momentumId: profile?.userId || momentumId,
-    });
-    console.info("[Momentum persistence] createProfile result", {
-      userId: profile?.userId || momentumId,
-      profile,
-    });
-    enterWorkspace();
-  })
-  .catch((error) => {
-    setSaveStatus("error");
-    console.error("[Momentum persistence] createProfile failed", error);
-  });
+        landingError = "";
+        saveWorkspace({
+          workspaceName: profile?.displayName || workspaceName,
+          momentumId: profile?.userId || momentumId,
+        });
+        console.info("[Momentum persistence] createProfile result", {
+          userId: profile?.userId || momentumId,
+          profile,
+        });
+        enterWorkspace();
+      })
+      .catch((error) => {
+        landingPanel = "create";
+        landingError =
+          error?.message ||
+          "Could not create this workspace. Please check the console.";
+        setSaveStatus("error");
+        console.error("[Momentum persistence] createProfile failed", error);
+        renderApp();
+        wireLandingPage();
+      });
   });
 
   document.getElementById("openWorkspaceForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const momentumId = document.getElementById("momentumIdInput")?.value.trim();
+    const momentumId = normalizeUserId(
+      document.getElementById("momentumIdInput")?.value,
+    );
 
     if (!momentumId) {
+      landingPanel = "open";
+      landingError = "Please enter a Momentum ID.";
+      renderApp();
+      wireLandingPage();
       return;
     }
 
     loadProfile(momentumId)
       .then((profile) => {
+        if (!profile) {
+          landingPanel = "open";
+          landingError = "No workspace found for this ID. Please create it first.";
+          console.info("[Momentum persistence] openProfile:not-found", {
+            userId: momentumId,
+          });
+          renderApp();
+          wireLandingPage();
+          return;
+        }
+
+        landingError = "";
         saveWorkspace({
-          workspaceName: profile?.displayName || getWorkspaceName(),
-          momentumId,
+          workspaceName: profile.displayName || getWorkspaceName(),
+          momentumId: profile.userId || momentumId,
         });
         console.info("[Momentum persistence] loadProfile result", {
           userId: momentumId,
@@ -2201,8 +2281,14 @@ function wireLandingPage() {
         enterWorkspace();
       })
       .catch((error) => {
+        landingPanel = "open";
+        landingError =
+          error?.message ||
+          "Could not open this workspace. Please check the console.";
         setSaveStatus("error");
         console.error("[Momentum persistence] loadProfile failed", error);
+        renderApp();
+        wireLandingPage();
       });
   });
 }
