@@ -287,13 +287,18 @@ h1 {
 }
 
 .date-nav {
+  width: 100%;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   max-width: 100%;
+  padding: 2px;
+  overflow: visible;
 }
 
 .date-nav-button {
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 36px;
   border: 1px solid var(--hairline);
   border-radius: 999px;
@@ -316,6 +321,11 @@ h1 {
   border-color: rgba(191, 223, 255, 0.95);
   box-shadow: 0 8px 18px rgba(91, 135, 180, 0.1);
   transform: translateY(-1px);
+}
+
+.date-nav-button:focus-visible {
+  outline: 2px solid rgba(191, 223, 255, 0.9);
+  outline-offset: 2px;
 }
 
 .workspace-grid {
@@ -1766,14 +1776,15 @@ h1 {
 
   .date-nav {
     flex-wrap: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    gap: 8px;
+    overflow: visible;
   }
 
   .date-nav-button {
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 10px;
+    text-align: center;
   }
 
   .analytics-controls {
@@ -1865,6 +1876,15 @@ h1 {
   .workspace-date-region {
     gap: 8px;
     margin-top: 12px;
+  }
+
+  .date-nav {
+    gap: 6px;
+  }
+
+  .date-nav-button {
+    padding: 0 7px;
+    font-size: 12px;
   }
 
   .workspace-date-display strong {

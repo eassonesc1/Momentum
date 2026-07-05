@@ -1188,9 +1188,9 @@ function renderWorkspaceDateControls() {
 
   workspaceDateRegion.innerHTML = `
     <div class="date-nav" aria-label="Workspace date navigation">
-      <button class="date-nav-button" type="button" data-date-nav="previous">← Previous Day</button>
+      <button class="date-nav-button" type="button" data-date-nav="previous">← Prev</button>
       <button class="date-nav-button ${isToday ? "is-active" : ""}" type="button" data-date-nav="today">Today</button>
-      <button class="date-nav-button" type="button" data-date-nav="next">Next Day →</button>
+      <button class="date-nav-button" type="button" data-date-nav="next">Next →</button>
     </div>
   `;
 }
