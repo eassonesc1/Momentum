@@ -1679,15 +1679,18 @@ h1 {
 
 @media (max-width: 680px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    display: block;
+    min-height: 100svh;
   }
 
   .sidebar {
     position: sticky;
     top: 0;
     z-index: 2;
+    display: block;
     width: 100%;
     height: auto;
+    min-height: 0;
     padding: 12px clamp(10px, 3vw, 14px);
     border-right: 0;
     border-bottom: 1px solid var(--hairline);
@@ -1728,11 +1731,11 @@ h1 {
   }
 
   .main {
-    grid-column: 1;
+    display: block;
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
-    padding: clamp(14px, 3.8vw, 20px) clamp(16px, 4.5vw, 20px) 28px;
+    padding: clamp(12px, 3vw, 16px) clamp(16px, 4.5vw, 20px) 28px;
   }
 
   .content-wrap,
