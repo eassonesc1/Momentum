@@ -26,11 +26,7 @@ export function MainWorkspace() {
           </button>
         </nav>
 
-        <div class="sidebar-meta" aria-label="Workspace information">
-          <div>
-            <span>Workspace</span>
-            <strong id="sidebarWorkspaceName">Momentum</strong>
-          </div>
+        <div class="sidebar-meta" aria-label="Version information">
           <p>Momentum v0.1</p>
         </div>
       </aside>
@@ -48,16 +44,12 @@ export function MainWorkspace() {
             </div>
             <aside class="workspace-identity" aria-label="Current workspace identity">
               <div>
-                <span>Workspace</span>
-                <strong id="headerWorkspaceName">Momentum</strong>
+                <span>Username</span>
+                <strong id="headerUsername">--</strong>
               </div>
               <div>
-                <span>Momentum ID</span>
-                <strong id="headerMomentumId">--</strong>
-              </div>
-              <div>
-                <span>Storage</span>
-                <strong id="headerStorage">--</strong>
+                <span>ID</span>
+                <strong id="headerUserId">--</strong>
               </div>
             </aside>
           </header>

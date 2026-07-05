@@ -7,7 +7,7 @@ function escapeHTML(value) {
     .replaceAll("'", "&#039;");
 }
 
-export function LandingPage(activePanel = null, savedWorkspace = null, errorMessage = "") {
+export function LandingPage(activePanel = null, savedAccount = null, errorMessage = "") {
   const error = errorMessage
     ? `<p class="landing-error" role="alert">${escapeHTML(errorMessage)}</p>`
     : "";
@@ -22,13 +22,13 @@ export function LandingPage(activePanel = null, savedWorkspace = null, errorMess
 
         <div class="landing-card-grid">
           ${
-            savedWorkspace
+            savedAccount
               ? `
                 <button class="landing-card landing-card-button landing-card-continue" type="button" data-continue-workspace>
                     <span class="landing-card-icon" aria-hidden="true">↩</span>
                     <span>
                       <strong>Continue</strong>
-                      <small>${savedWorkspace.workspaceName}</small>
+                      <small>${savedAccount.username}</small>
                     </span>
                 </button>
               `
@@ -49,7 +49,7 @@ export function LandingPage(activePanel = null, savedWorkspace = null, errorMess
                   <form class="landing-form" id="createWorkspaceForm">
                     <label class="field">
                       <span class="field-label">Username</span>
-                      <input class="input" id="workspaceNameInput" autocomplete="username" />
+                      <input class="input" id="usernameInput" autocomplete="username" />
                     </label>
                     ${activePanel === "create" ? error : ""}
                     <button class="small-button" type="submit">Create Workspace</button>
@@ -64,7 +64,7 @@ export function LandingPage(activePanel = null, savedWorkspace = null, errorMess
               <span class="landing-card-icon" aria-hidden="true">📂</span>
               <span>
                 <strong>Open Workspace</strong>
-                <small>Continue using your username or Momentum ID.</small>
+                <small>Continue using your username or User ID.</small>
               </span>
             </button>
             ${
@@ -72,7 +72,7 @@ export function LandingPage(activePanel = null, savedWorkspace = null, errorMess
                 ? `
                   <form class="landing-form" id="openWorkspaceForm">
                     <label class="field">
-                      <span class="field-label">Username or Momentum ID</span>
+                      <span class="field-label">Username or User ID</span>
                       <input class="input" id="momentumIdInput" autocomplete="username" />
                     </label>
                     ${activePanel === "open" ? error : ""}

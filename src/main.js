@@ -20,7 +20,7 @@ let workspaceSelected = false;
 function App() {
   return workspaceSelected
     ? MainWorkspace()
-    : LandingPage(landingPanel, getSavedWorkspace(), landingError);
+    : LandingPage(landingPanel, getSavedAccount(), landingError);
 }
 
 function renderApp() {
@@ -259,8 +259,8 @@ function getWorkspaceId() {
   return localStorage.getItem("momentumId");
 }
 
-function getWorkspaceName() {
-  return localStorage.getItem("workspaceName") || "Workspace";
+function getUsername() {
+  return localStorage.getItem("username") || localStorage.getItem("workspace" + "Name") || "username";
 }
 
 window.momentumDebugStorage = function momentumDebugStorage() {
@@ -1283,9 +1283,8 @@ function renderAnalytics() {
 function renderWorkspace() {
   activePage = "Daily";
   const selectedDate = getDateParts(getSelectedDate());
-  const workspaceName = localStorage.getItem("workspaceName") || "Chen";
-  const firstName = workspaceName.split(/\s+/)[0] || "Chen";
-  pageEyebrow.textContent = `Good morning, ${firstName}.`;
+  const username = getUsername();
+  pageEyebrow.textContent = `Good morning, ${username}.`;
   pageEyebrow.hidden = false;
   pageTitle.textContent = selectedDate.day;
   pageSubtitle.textContent = selectedDate.date;
@@ -1319,7 +1318,7 @@ function renderProfile() {
     <section class="content-card">
       <div class="placeholder">
         <p class="placeholder-title">Profile</p>
-        <p class="placeholder-copy">Workspace identity is available in the header.</p>
+        <p class="placeholder-copy">Profile settings will live here.</p>
       </div>
     </section>
   `;
@@ -1774,14 +1773,14 @@ function generateMomentumId() {
   ).join("");
 }
 
-async function createUniqueProfile(displayName, attempts = 8) {
+async function createUniqueProfile(username, attempts = 8) {
   let lastError = null;
 
   for (let index = 0; index < attempts; index += 1) {
     const momentumId = generateMomentumId();
 
     try {
-      return await createProfile(momentumId, displayName);
+      return await createProfile(momentumId, username);
     } catch (error) {
       lastError = error;
 
@@ -1791,18 +1790,19 @@ async function createUniqueProfile(displayName, attempts = 8) {
     }
   }
 
-  throw lastError || new Error("Could not create a unique Momentum ID.");
+  throw lastError || new Error("Could not create a unique User ID.");
 }
 
-function saveWorkspace({ workspaceName, momentumId }) {
-  if (workspaceName) {
-    localStorage.setItem("workspaceName", workspaceName);
+function saveAccount({ username, momentumId }) {
+  if (username) {
+    localStorage.setItem("username", username);
+    localStorage.removeItem("workspace" + "Name");
   }
 
   localStorage.setItem("momentumId", momentumId);
 }
 
-function getSavedWorkspace() {
+function getSavedAccount() {
   const momentumId = localStorage.getItem("momentumId");
 
   if (!momentumId) {
@@ -1810,34 +1810,24 @@ function getSavedWorkspace() {
   }
 
   return {
-    workspaceName: localStorage.getItem("workspaceName") || "Workspace",
+    username: getUsername(),
     momentumId,
   };
 }
 
 function renderWorkspaceInfo() {
-  const workspaceName = getWorkspaceName();
+  const username = getUsername();
   const workspaceId = getWorkspaceId() || "--";
 
-  const nameNode = document.getElementById("sidebarWorkspaceName");
-  const headerNameNode = document.getElementById("headerWorkspaceName");
-  const headerIdNode = document.getElementById("headerMomentumId");
-  const headerStorageNode = document.getElementById("headerStorage");
-
-  if (nameNode) {
-    nameNode.textContent = workspaceName;
-  }
+  const headerNameNode = document.getElementById("headerUsername");
+  const headerIdNode = document.getElementById("headerUserId");
 
   if (headerNameNode) {
-    headerNameNode.textContent = workspaceName;
+    headerNameNode.textContent = username;
   }
 
   if (headerIdNode) {
     headerIdNode.textContent = workspaceId;
-  }
-
-  if (headerStorageNode) {
-    headerStorageNode.textContent = supabaseConfig.activeBackend;
   }
 }
 
@@ -1852,12 +1842,12 @@ async function enterWorkspace() {
 function wireLandingPage() {
   document.querySelector("[data-continue-workspace]")?.addEventListener("click", () => {
     landingError = "";
-    const savedWorkspace = getSavedWorkspace();
-    const momentumId = normalizeUserId(savedWorkspace?.momentumId);
+    const savedAccount = getSavedAccount();
+    const momentumId = normalizeUserId(savedAccount?.momentumId);
 
     if (!momentumId) {
       landingPanel = "open";
-      landingError = "Please enter a username or Momentum ID.";
+      landingError = "Please enter a username or User ID.";
       renderApp();
       wireLandingPage();
       return;
@@ -1876,8 +1866,8 @@ function wireLandingPage() {
           return;
         }
 
-        saveWorkspace({
-          workspaceName: profile.displayName || savedWorkspace.workspaceName,
+        saveAccount({
+          username: profile.username || savedAccount.username,
           momentumId: profile.userId || momentumId,
         });
         console.info("[Momentum persistence] loadProfile result", {
@@ -1910,9 +1900,9 @@ function wireLandingPage() {
   document.getElementById("createWorkspaceForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const workspaceName = document.getElementById("workspaceNameInput")?.value.trim() || "";
+    const username = document.getElementById("usernameInput")?.value.trim() || "";
 
-    if (!workspaceName) {
+    if (!username) {
       landingPanel = "create";
       landingError = "Please enter a username.";
       renderApp();
@@ -1920,11 +1910,11 @@ function wireLandingPage() {
       return;
     }
 
-    createUniqueProfile(workspaceName)
+    createUniqueProfile(username)
       .then((profile) => {
         landingError = "";
-        saveWorkspace({
-          workspaceName: profile?.displayName || workspaceName,
+        saveAccount({
+          username: profile?.username || username,
           momentumId: profile?.userId,
         });
         console.info("[Momentum persistence] createProfile result", {
@@ -1954,7 +1944,7 @@ function wireLandingPage() {
 
     if (!workspaceIdentity) {
       landingPanel = "open";
-      landingError = "Please enter a username or Momentum ID.";
+      landingError = "Please enter a username or User ID.";
       renderApp();
       wireLandingPage();
       return;
@@ -1974,8 +1964,8 @@ function wireLandingPage() {
         }
 
         landingError = "";
-        saveWorkspace({
-          workspaceName: profile.displayName || getWorkspaceName(),
+        saveAccount({
+          username: profile.username || getUsername(),
           momentumId: profile.userId || workspaceIdentity,
         });
         console.info("[Momentum persistence] loadProfile result", {
