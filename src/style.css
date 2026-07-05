@@ -28,6 +28,7 @@
 
 html,
 body,
+#root,
 #app {
   width: 100%;
   max-width: 100%;
@@ -50,6 +51,13 @@ select,
 textarea {
   font: inherit;
   min-width: 0;
+  max-width: 100%;
+}
+
+button,
+svg,
+img {
+  max-width: 100%;
 }
 
 .app-shell {
@@ -175,7 +183,7 @@ textarea {
   grid-column: 2;
   min-width: 0;
   max-width: 100%;
-  padding: 56px;
+  padding: clamp(32px, 5vw, 56px);
 }
 
 .content-wrap {
@@ -295,11 +303,16 @@ h1 {
 .workspace-grid {
   columns: 2 320px;
   column-gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .workspace-card {
   display: inline-block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 0 0 24px;
   break-inside: avoid;
   padding: 26px;
@@ -331,6 +344,8 @@ h1 {
 
 .landing-content {
   width: min(940px, 100%);
+  max-width: 100%;
+  min-width: 0;
   display: grid;
   gap: 48px;
 }
@@ -362,6 +377,9 @@ h1 {
 }
 
 .landing-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 210px;
   display: grid;
   gap: 20px;
@@ -464,11 +482,13 @@ h1 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  min-width: 0;
 }
 
 .field {
   display: grid;
   gap: 7px;
+  min-width: 0;
 }
 
 .field-label,
@@ -522,6 +542,7 @@ h1 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  min-width: 0;
 }
 
 .time-card,
@@ -621,6 +642,9 @@ h1 {
 .session-row {
   display: grid;
   gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 12px;
   border: 1px solid var(--hairline);
   border-radius: 16px;
@@ -735,6 +759,9 @@ h1 {
 .segmented {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   gap: 6px;
   padding: 5px;
   border-radius: 15px;
@@ -944,15 +971,24 @@ h1 {
 .analytics-grid {
   columns: 2 320px;
   column-gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .insights-page,
 .analytics-page {
   display: grid;
   gap: 28px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .insights-hero {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: grid;
   gap: 18px;
   padding: 46px;
@@ -999,6 +1035,9 @@ h1 {
 }
 
 .insights-feature-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: grid;
   gap: 28px;
   padding: 34px;
@@ -1012,6 +1051,9 @@ h1 {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
   gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .insights-section-heading {
@@ -1041,6 +1083,7 @@ h1 {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
+  min-width: 0;
 }
 
 .insight-metric {
@@ -1161,6 +1204,9 @@ h1 {
 
 .analytics-controls {
   display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
@@ -1175,6 +1221,8 @@ h1 {
 .range-segmented {
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(86px, 1fr));
+  max-width: 100%;
+  min-width: 0;
   gap: 6px;
   padding: 5px;
   border-radius: 15px;
@@ -1224,6 +1272,8 @@ h1 {
 .analytics-card {
   display: inline-block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 0 0 24px;
   break-inside: avoid;
   padding: 24px;
@@ -1309,6 +1359,7 @@ h1 {
 
 .line-chart {
   width: 100%;
+  max-width: 100%;
   height: 118px;
   overflow: visible;
 }
@@ -1381,6 +1432,7 @@ h1 {
 .donut-wrap {
   position: relative;
   width: 190px;
+  max-width: 100%;
   height: 190px;
   display: grid;
   place-items: center;
@@ -1388,6 +1440,7 @@ h1 {
 
 .donut-chart {
   width: 190px;
+  max-width: 100%;
   height: 190px;
   transform: rotate(-90deg);
 }
@@ -1441,6 +1494,7 @@ h1 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+  min-width: 0;
 }
 
 .stat-tile {
@@ -1561,7 +1615,7 @@ h1 {
   }
 
   .main {
-    padding: 30px 24px;
+    padding: clamp(24px, 4vw, 30px) clamp(20px, 4vw, 24px);
   }
 
   h1 {
@@ -1615,9 +1669,17 @@ h1 {
     max-width: 100%;
     padding-bottom: 2px;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar,
+  .date-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-button {
+    width: auto;
+    max-width: none;
     white-space: nowrap;
   }
 
@@ -1626,7 +1688,7 @@ h1 {
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
-    padding: 24px clamp(14px, 4vw, 18px) 36px;
+    padding: clamp(18px, 5vw, 24px) clamp(16px, 5vw, 22px) 36px;
   }
 
   .content-wrap,
@@ -1645,12 +1707,24 @@ h1 {
     columns: 1;
   }
 
+  .date-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .date-nav-button {
+    flex: 0 0 auto;
+  }
+
   .analytics-controls {
     align-items: stretch;
   }
 
   .range-segmented {
     width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .field-grid,
@@ -1709,6 +1783,101 @@ h1 {
     border-radius: 20px;
     padding: 18px;
     font-size: 17px;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: clamp(38px, 13vw, 48px);
+  }
+
+  .eyebrow {
+    font-size: 20px;
+  }
+
+  .page-subtitle {
+    font-size: 16px;
+  }
+
+  .workspace-card,
+  .tracker-card,
+  .analytics-card,
+  .insights-hero,
+  .insights-feature-card,
+  .today-journal,
+  .content-card {
+    padding: clamp(18px, 5vw, 22px);
+  }
+
+  .landing-page {
+    padding: clamp(22px, 6vw, 28px) 16px;
+  }
+
+  .landing-card {
+    padding: 22px;
+  }
+
+  .analytics-controls {
+    padding: 10px;
+  }
+
+  .insights-hero h2 {
+    font-size: clamp(34px, 10vw, 38px);
+  }
+
+  .insights-section-heading h2 {
+    font-size: 30px;
+  }
+
+  .insight-metric strong,
+  .metric-large {
+    font-size: 28px;
+  }
+
+  .journal-day {
+    font-size: 34px;
+  }
+
+  .journal-textarea {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 360px) {
+  .main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .workspace-card,
+  .tracker-card,
+  .analytics-card,
+  .insights-hero,
+  .insights-feature-card,
+  .today-journal,
+  .content-card {
+    padding: 16px;
+  }
+
+  .nav-button {
+    min-height: 44px;
+    padding: 0 11px;
+    font-size: 14px;
+  }
+
+  .date-nav-button,
+  .small-button {
+    min-height: 40px;
+  }
+
+  .segment,
+  .range-option {
+    font-size: 13px;
+  }
+
+  .time-value,
+  .metric-value {
+    font-size: 25px;
   }
 }
     
