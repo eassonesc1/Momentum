@@ -1,12 +1,16 @@
 {
-  "name": "momentum-work-journal",
+  "name": "momentum",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 5173",
+    "check:identity": "node scripts/check-project-identity.js",
+    "predev": "npm run check:identity",
+    "dev": "vite --port 5173",
+    "prebuild": "npm run check:identity",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 5173"
+    "prepreview": "npm run check:identity",
+    "preview": "vite preview --port 5173"
   },
   "devDependencies": {
     "vite": "^7.0.0"
