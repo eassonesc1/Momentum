@@ -1796,10 +1796,15 @@ function renderWorkspaceInfo() {
   const username = getUsername();
   const workspaceId = getWorkspaceId() || "--";
 
-  const headerAccountNode = document.getElementById("headerAccount");
+  const headerUsernameNode = document.getElementById("headerUsername");
+  const headerUserIdNode = document.getElementById("headerUserId");
 
-  if (headerAccountNode) {
-    headerAccountNode.textContent = `${username} · ID: ${workspaceId}`;
+  if (headerUsernameNode) {
+    headerUsernameNode.textContent = username;
+  }
+
+  if (headerUserIdNode) {
+    headerUserIdNode.textContent = workspaceId;
   }
 }
 

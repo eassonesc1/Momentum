@@ -39,7 +39,9 @@ export function MainWorkspace() {
               <div class="workspace-date-region" id="workspaceDateRegion"></div>
             </div>
             <aside class="workspace-identity" aria-label="Current account">
-              <span id="headerAccount">-- · ID: --</span>
+              <span class="account-username" id="headerUsername">--</span>
+              <span class="account-separator" aria-hidden="true">·</span>
+              <span class="account-id">ID: <span id="headerUserId">--</span></span>
             </aside>
           </header>
 
