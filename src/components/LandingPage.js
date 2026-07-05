@@ -38,6 +38,10 @@ export function LandingPage(activePanel = null, savedWorkspace = null) {
                       <span class="field-label">Your Name</span>
                       <input class="input" id="workspaceNameInput" autocomplete="name" />
                     </label>
+                    <label class="field">
+                      <span class="field-label">User ID</span>
+                      <input class="input" id="createUserIdInput" autocomplete="off" placeholder="MOM-7KQ92" />
+                    </label>
                     <button class="small-button" type="submit">Create Workspace</button>
                   </form>
                 `

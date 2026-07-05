@@ -1,9 +1,15 @@
-import { isSupabaseConfigured } from "./lib/supabase.js";
 import {
-  getMoodLogByDate,
-  getMoodLogsForRange,
-  saveMoodLog,
-} from "./services/moodLogs.js";
+  createProfile,
+  deleteJobApplication,
+  loadDailyEntries,
+  loadDailyEntry,
+  loadJobApplications,
+  loadJournalEntries,
+  loadProfile,
+  saveDailyEntry,
+  saveJobApplication,
+  saveJournalEntry,
+} from "./lib/dataStore.js";
 import { LandingPage } from "./components/LandingPage.js";
 import { MainWorkspace } from "./components/MainWorkspace.js";
 
@@ -228,6 +234,133 @@ function getOrCreateMoodEntry(date) {
 
 function getWorkspaceId() {
   return localStorage.getItem("momentumId");
+}
+
+function getWorkspaceName() {
+  return localStorage.getItem("workspaceName") || "Workspace";
+}
+
+function getDailyDataForDate(date) {
+  return {
+    sleep: getSleepEntry(date) || null,
+    focusSessions: state.focus.sessions.filter((session) => session.date === date),
+    health: getHealthEntry(date) || null,
+    mood: getMoodEntry(date) || null,
+  };
+}
+
+function applyDailyEntry(entry) {
+  if (!entry?.date || !entry.data) {
+    return;
+  }
+
+  const { date, data } = entry;
+
+  if (data.sleep) {
+    const sleepEntry = getOrCreateSleepEntry(date);
+    sleepEntry.wakeUp = data.sleep.wakeUp || sleepEntry.wakeUp;
+    sleepEntry.bedtime = data.sleep.bedtime || sleepEntry.bedtime;
+  }
+
+  if (Array.isArray(data.focusSessions)) {
+    state.focus.sessions = [
+      ...state.focus.sessions.filter((session) => session.date !== date),
+      ...data.focusSessions.map((session) => ({
+        id: session.id || createId("focus"),
+        date,
+        start: session.start || "09:00",
+        end: session.end || "10:00",
+        type: session.type || "Study",
+      })),
+    ];
+  }
+
+  if (data.health) {
+    const healthEntry = getOrCreateHealthEntry(date);
+    healthEntry.training = data.health.training || healthEntry.training;
+  }
+
+  if (data.mood) {
+    upsertMoodEntry({
+      date,
+      score: data.mood.score || 6,
+      logId: data.mood.logId || null,
+      persisted: true,
+      workspaceId: getWorkspaceId(),
+    });
+  }
+}
+
+function applyJournalEntries(entries) {
+  const today = getTodayISO();
+  const todayEntry = entries.find((entry) => entry.date === today);
+
+  state.journal.today = todayEntry?.text || "";
+  state.journal.entries = entries
+    .filter((entry) => entry.date !== today && entry.text?.trim())
+    .map((entry) => ({
+      id: entry.id || createId("journal"),
+      date: entry.date,
+      text: entry.text,
+    }));
+}
+
+function applyJobApplications(applications) {
+  state.career.applications = applications.map((application) => ({
+    id: application.id || createId("career"),
+    date: application.date || getTodayISO(),
+    company: application.company || "",
+    position: application.position || "",
+    status: application.status || "Saved",
+    notes: application.notes || "",
+  }));
+}
+
+async function loadUserData() {
+  const userId = getWorkspaceId();
+
+  if (!userId) {
+    return;
+  }
+
+  try {
+    const [dailyEntries, journalEntries, applications] = await Promise.all([
+      loadDailyEntries(userId),
+      loadJournalEntries(userId),
+      loadJobApplications(userId),
+    ]);
+
+    dailyEntries.forEach(applyDailyEntry);
+    applyJournalEntries(journalEntries);
+    applyJobApplications(applications);
+  } catch (error) {
+    setSaveStatus("error");
+    console.error(
+      `Could not load Momentum data: ${error?.message || "Unknown error"}`.trim(),
+    );
+  }
+}
+
+async function loadSelectedDailyEntry() {
+  const userId = getWorkspaceId();
+
+  if (!userId) {
+    return;
+  }
+
+  const selectedDate = getSelectedDate();
+
+  try {
+    const entries = await Promise.all([
+      loadDailyEntry(userId, addDays(selectedDate, -1)),
+      loadDailyEntry(userId, selectedDate),
+    ]);
+    entries.forEach(applyDailyEntry);
+  } catch (error) {
+    console.error(
+      `Could not load selected day: ${error?.message || "Unknown error"}`.trim(),
+    );
+  }
 }
 
 function upsertMoodEntry({
@@ -1498,8 +1631,20 @@ async function autoSaveChanges() {
   setSaveStatus("saving");
 
   try {
-    if (dirtyModules.includes("mood")) {
-      await saveMoodChanges();
+    if (
+      dirtyModules.some((moduleName) =>
+        ["sleep", "focus", "health", "mood"].includes(moduleName),
+      )
+    ) {
+      await saveSelectedDailyEntry();
+    }
+
+    if (dirtyModules.includes("career")) {
+      await saveCareerApplications();
+    }
+
+    if (dirtyModules.includes("journal")) {
+      await saveJournalChanges();
     }
 
     state.save.dirtyModules = state.save.dirtyModules.filter(
@@ -1512,6 +1657,63 @@ async function autoSaveChanges() {
       `Auto save failed: ${error?.message || "Unknown error"} ${error?.code || ""}`.trim(),
     );
   }
+}
+
+async function saveSelectedDailyEntry() {
+  const userId = getWorkspaceId();
+
+  if (!userId) {
+    return;
+  }
+
+  const date = getSelectedDate();
+  const savedEntry = await saveDailyEntry(userId, date, getDailyDataForDate(date));
+  applyDailyEntry(savedEntry);
+
+  const mood = getMoodEntry(date);
+  if (mood) {
+    mood.persisted = true;
+    mood.workspaceId = userId;
+  }
+}
+
+async function saveCareerApplications() {
+  const userId = getWorkspaceId();
+
+  if (!userId) {
+    return;
+  }
+
+  const savedApplications = [];
+
+  for (const application of state.career.applications) {
+    const savedApplication = await saveJobApplication(userId, application);
+    savedApplications.push(savedApplication);
+  }
+
+  if (savedApplications.length) {
+    applyJobApplications(savedApplications);
+  }
+}
+
+async function saveJournalChanges() {
+  const userId = getWorkspaceId();
+
+  if (!userId) {
+    return;
+  }
+
+  const savedEntry = await saveJournalEntry(userId, {
+    date: getTodayISO(),
+    text: state.journal.today,
+    mood: state.mood.score,
+    tags: [],
+  });
+
+  const previousEntries = state.journal.entries.filter(
+    (entry) => entry.date !== savedEntry.date,
+  );
+  applyJournalEntries([...previousEntries, savedEntry]);
 }
 
 function setTodayMood(score, logId = state.mood.logId, persisted = Boolean(logId)) {
@@ -1539,24 +1741,21 @@ function setDefaultMoodForSelectedDate() {
 }
 
 async function loadTodayMood() {
-  if (!isSupabaseConfigured) {
-    return;
-  }
-
   try {
     const selectedDate = getSelectedDate();
-    const moodLog = await getMoodLogByDate(selectedDate, getWorkspaceId());
+    const dailyEntry = await loadDailyEntry(getWorkspaceId(), selectedDate);
+    const moodLog = dailyEntry?.data?.mood || null;
 
     if (moodLog) {
       upsertMoodEntry({
-        date: moodLog.date,
+        date: selectedDate,
         score: moodLog.score,
-        logId: moodLog.id,
+        logId: moodLog.logId || null,
         persisted: true,
-        workspaceId: moodLog.workspaceId || getWorkspaceId(),
+        workspaceId: getWorkspaceId(),
       });
       state.mood.score = Number(moodLog.score);
-      state.mood.logId = moodLog.id;
+      state.mood.logId = moodLog.logId || null;
     } else {
       setDefaultMoodForSelectedDate();
     }
@@ -1574,10 +1773,6 @@ function moodRangeKey(range) {
 }
 
 async function loadMoodRangeForAnalytics({ force = false } = {}) {
-  if (!isSupabaseConfigured) {
-    return;
-  }
-
   const range = getRangeBounds();
   const key = moodRangeKey(range);
 
@@ -1586,19 +1781,19 @@ async function loadMoodRangeForAnalytics({ force = false } = {}) {
   }
 
   try {
-    const moodLogs = await getMoodLogsForRange({
-      from: range.from,
-      to: range.to,
-      workspaceId: getWorkspaceId(),
-    });
+    const dailyEntries = await loadDailyEntries(getWorkspaceId());
 
-    moodLogs.forEach((moodLog) => {
+    dailyEntries
+      .filter((entry) => isWithinRange(entry.date, range))
+      .filter((entry) => entry.data?.mood)
+      .forEach((entry) => {
+        const moodLog = entry.data.mood;
       upsertMoodEntry({
-        date: moodLog.date,
+        date: entry.date,
         score: moodLog.score,
-        logId: moodLog.id,
+        logId: moodLog.logId || null,
         persisted: true,
-        workspaceId: moodLog.workspaceId || getWorkspaceId(),
+        workspaceId: getWorkspaceId(),
       });
     });
 
@@ -1617,28 +1812,7 @@ async function loadMoodRangeForAnalytics({ force = false } = {}) {
 }
 
 async function saveMoodChanges() {
-  if (!isSupabaseConfigured) {
-    throw new Error("Add Supabase env variables to save mood.");
-  }
-
-  const moodLog = await saveMoodLog({
-    id: getOrCreateMoodEntry(getSelectedDate()).logId,
-    date: getSelectedDate(),
-    score: state.mood.score,
-    workspaceId: getWorkspaceId(),
-  });
-
-  if (moodLog) {
-    upsertMoodEntry({
-      date: moodLog.date,
-      score: moodLog.score,
-      logId: moodLog.id,
-      persisted: true,
-      workspaceId: moodLog.workspaceId || getWorkspaceId(),
-    });
-    state.mood.logId = moodLog.id;
-    state.mood.score = Number(moodLog.score);
-  }
+  await saveSelectedDailyEntry();
 }
 
 function wireWorkspace() {
@@ -1660,7 +1834,9 @@ function wireWorkspace() {
       }
 
       renderWorkspace();
-      loadTodayMood();
+      loadSelectedDailyEntry().then(() => {
+        renderWorkspace();
+      });
     });
   });
 
@@ -1813,26 +1989,36 @@ function wireJobTracker() {
 
     row.querySelector(".tracker-company")?.addEventListener("input", (event) => {
       application.company = event.target.value;
+      markUnsavedChange("career");
     });
 
     row.querySelector(".tracker-position")?.addEventListener("input", (event) => {
       application.position = event.target.value;
+      markUnsavedChange("career");
     });
 
     row.querySelector(".tracker-status")?.addEventListener("change", (event) => {
       application.status = event.target.value;
+      markUnsavedChange("career");
       rerenderJobTracker();
     });
 
     row.querySelector(".tracker-date")?.addEventListener("input", (event) => {
       application.date = event.target.value;
+      markUnsavedChange("career");
       rerenderJobTracker();
     });
 
-    row.querySelector(".delete-application")?.addEventListener("click", () => {
+    row.querySelector(".delete-application")?.addEventListener("click", async () => {
       state.career.applications = state.career.applications.filter(
         (item) => item.id !== application.id,
       );
+      try {
+        await deleteJobApplication(getWorkspaceId(), application.id);
+      } catch (error) {
+        setSaveStatus("error");
+        console.error(error);
+      }
       rerenderJobTracker();
     });
   });
@@ -1851,6 +2037,7 @@ function wireJournal() {
     todayJournal.addEventListener("input", (event) => {
       state.journal.today = event.target.value;
       autoGrowTextarea(event.target);
+      markUnsavedChange("journal");
     });
   }
 
@@ -1915,7 +2102,7 @@ function getSavedWorkspace() {
 }
 
 function renderWorkspaceInfo() {
-  const workspaceName = localStorage.getItem("workspaceName") || "Workspace";
+  const workspaceName = getWorkspaceName();
 
   const nameNode = document.getElementById("sidebarWorkspaceName");
 
@@ -1924,10 +2111,12 @@ function renderWorkspaceInfo() {
   }
 }
 
-function enterWorkspace() {
+async function enterWorkspace() {
   workspaceSelected = true;
   renderApp();
   initMainWorkspace();
+  await loadUserData();
+  renderPage(activePage);
 }
 
 function wireLandingPage() {
@@ -1948,10 +2137,21 @@ function wireLandingPage() {
 
     const workspaceName =
       document.getElementById("workspaceNameInput")?.value.trim() || "Workspace";
-    const momentumId = generateMomentumId();
+    const momentumId =
+      document.getElementById("createUserIdInput")?.value.trim() ||
+      generateMomentumId();
 
-    saveWorkspace({ workspaceName, momentumId });
-    enterWorkspace();
+    createProfile(momentumId, workspaceName)
+      .then((profile) => {
+        saveWorkspace({
+          workspaceName: profile?.displayName || workspaceName,
+          momentumId: profile?.userId || momentumId,
+        });
+        enterWorkspace();
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   });
 
   document.getElementById("openWorkspaceForm")?.addEventListener("submit", (event) => {
@@ -1963,8 +2163,17 @@ function wireLandingPage() {
       return;
     }
 
-    saveWorkspace({ workspaceName: localStorage.getItem("workspaceName") || "Workspace", momentumId });
-    enterWorkspace();
+    loadProfile(momentumId)
+      .then((profile) => {
+        saveWorkspace({
+          workspaceName: profile?.displayName || getWorkspaceName(),
+          momentumId,
+        });
+        enterWorkspace();
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   });
 }
 
