@@ -1267,6 +1267,7 @@ function renderJournal() {
     : "";
 
   pageEyebrow.textContent = "Journal";
+  pageEyebrow.hidden = true;
   pageTitle.textContent = "Journal";
   pageSubtitle.textContent = "Capture today's memories.";
   pageSubtitle.hidden = false;
@@ -1300,6 +1301,7 @@ function renderAnalytics() {
   activePage = "Insights";
   const data = getAnalyticsData();
   pageEyebrow.textContent = "Insights";
+  pageEyebrow.hidden = true;
   pageTitle.textContent = "Insights";
   pageSubtitle.textContent = "A reflective view of your patterns over time.";
   pageSubtitle.hidden = false;
@@ -1338,6 +1340,7 @@ function renderWorkspace() {
   const workspaceName = localStorage.getItem("workspaceName") || "Chen";
   const firstName = workspaceName.split(/\s+/)[0] || "Chen";
   pageEyebrow.textContent = `Good morning, ${firstName}.`;
+  pageEyebrow.hidden = false;
   pageTitle.textContent = selectedDate.day;
   pageSubtitle.textContent = selectedDate.date;
   pageSubtitle.hidden = false;
@@ -1361,6 +1364,7 @@ function renderWorkspace() {
 function renderJobTracker() {
   activePage = "Job Tracker";
   pageEyebrow.textContent = "Job Tracker";
+  pageEyebrow.hidden = true;
   pageTitle.textContent = "Job Tracker";
   pageSubtitle.textContent = "Career applications in one place.";
   pageSubtitle.hidden = false;
@@ -1387,6 +1391,7 @@ function rerenderJobTracker({ focusSearch = false } = {}) {
 function renderComingSoon(page) {
   activePage = page;
   pageEyebrow.textContent = page;
+  pageEyebrow.hidden = true;
   pageTitle.textContent = page;
   pageSubtitle.hidden = true;
   if (workspaceDateRegion) {
