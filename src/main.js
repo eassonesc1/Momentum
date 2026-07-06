@@ -1034,19 +1034,6 @@ function MoodCard() {
   });
 }
 
-function MomentumScoreCard() {
-  const data = getAnalyticsData();
-  return AnalyticsCard({
-    title: "Momentum Score",
-    children: `
-      <div class="score-placeholder">
-        <div class="score-ring">Pending</div>
-      </div>
-      <p class="analytics-muted">${data.label} view</p>
-    `,
-  });
-}
-
 function SleepAnalyticsCard() {
   const data = getAnalyticsData();
   return AnalyticsCard({
@@ -1336,7 +1323,6 @@ function renderAnalytics() {
     <div class="analytics-page">
       ${TimeRangeSelector()}
       <div class="analytics-grid">
-        ${MomentumScoreCard()}
         ${SleepAnalyticsCard()}
         ${FocusAnalyticsCard()}
         ${MoodAnalyticsCard()}

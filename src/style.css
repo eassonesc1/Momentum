@@ -1442,26 +1442,6 @@ h1 {
   line-height: 1.4;
 }
 
-.score-placeholder {
-  min-height: 180px;
-  display: grid;
-  place-items: center;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff, rgba(247, 250, 252, 0.92));
-}
-
-.score-ring {
-  width: 132px;
-  height: 132px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 12px solid rgba(17, 17, 17, 0.07);
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 680;
-}
-
 .sleep-chart-stack {
   display: grid;
   gap: 16px;
