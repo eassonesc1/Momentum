@@ -187,12 +187,13 @@ function getSelectedDate() {
 
 function getSleepDurationForDate(date) {
   const currentEntry = getSleepEntry(date);
+  const previousEntry = getSleepEntry(addDays(date, -1));
 
-  if (!isValidTime(currentEntry?.wakeUp) || !isValidTime(currentEntry?.bedtime)) {
+  if (!isValidTime(previousEntry?.bedtime) || !isValidTime(currentEntry?.wakeUp)) {
     return null;
   }
 
-  return minutesBetween(currentEntry.bedtime, currentEntry.wakeUp);
+  return minutesBetween(previousEntry.bedtime, currentEntry.wakeUp);
 }
 
 function getHealthEntry(date) {
@@ -294,8 +295,8 @@ function applyDailyEntry(entry) {
 
   if (data.sleep) {
     const sleepEntry = getOrCreateSleepEntry(date);
-    sleepEntry.wakeUp = data.sleep.wakeUp || sleepEntry.wakeUp;
-    sleepEntry.bedtime = data.sleep.bedtime || sleepEntry.bedtime;
+    sleepEntry.wakeUp = data.sleep.wakeUp ?? sleepEntry.wakeUp;
+    sleepEntry.bedtime = data.sleep.bedtime ?? sleepEntry.bedtime;
   }
 
   if (Array.isArray(data.focusSessions)) {
