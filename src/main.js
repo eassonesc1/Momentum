@@ -591,8 +591,9 @@ function getAnalyticsData() {
             moodEntries.reduce((sum, entry) => sum + entry.score, 0) /
             moodEntries.length
           ).toFixed(1)
-        : "0.0",
+        : null,
       values: moodEntries.map((entry) => entry.score),
+      labels: moodEntries.map((entry) => formatMoodXAxisLabel(entry.date)),
     },
     journal: {
       keywords: extractKeywords(journalEntries),
@@ -638,6 +639,19 @@ function getChartXAxisLabels() {
   return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 }
 
+function formatMoodXAxisLabel(date) {
+  const dateValue = new Date(`${date}T00:00:00`);
+
+  if (state.analytics.range === "week") {
+    return new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(dateValue);
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    day: "numeric",
+  }).format(dateValue);
+}
+
 function getChartYTicks(values) {
   const chartValues = values.length ? values : [0];
   const min = Math.min(...chartValues);
@@ -655,12 +669,12 @@ function formatChartTick(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-function LineChart({ values, soft = false, accent = "" }) {
+function LineChart({ values, labels = null, soft = false, accent = "" }) {
   const points = pointsForLine(values);
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
-  const xLabels = getChartXAxisLabels();
+  const xLabels = labels || getChartXAxisLabels();
   const yTicks = getChartYTicks(values);
   const yPositions = [18, 72, 126];
   const xStart = 46;
@@ -1077,14 +1091,26 @@ function HealthAnalyticsCard() {
 
 function MoodAnalyticsCard() {
   const data = getAnalyticsData();
+  const hasMoodRecords = data.mood.values.length > 0;
+
   return AnalyticsCard({
     title: "Mood",
     children: `
-      <div class="mood-value mood-gradient-panel">
-        <span class="micro-label">${data.label} Average</span>
-        <strong class="mood-number">${data.mood.average}</strong>
-      </div>
-      ${LineChart({ values: data.mood.values, accent: "mood" })}
+      ${
+        hasMoodRecords
+          ? `
+            <div class="mood-value mood-gradient-panel">
+              <span class="micro-label">Recorded Average</span>
+              <strong class="mood-number">${data.mood.average}</strong>
+            </div>
+            ${LineChart({
+              values: data.mood.values,
+              labels: data.mood.labels,
+              accent: "mood",
+            })}
+          `
+          : `<p class="empty-state">No mood records yet.</p>`
+      }
     `,
   });
 }
