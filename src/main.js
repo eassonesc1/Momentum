@@ -514,9 +514,9 @@ function extractKeywords(entries) {
 
 function getAnalyticsData() {
   const range = getRangeBounds();
-  const sleepEntries = state.sleep.entries.filter((entry) =>
-    isWithinRange(entry.date, range),
-  );
+  const sleepEntries = state.sleep.entries
+    .filter((entry) => isWithinRange(entry.date, range))
+    .sort((a, b) => a.date.localeCompare(b.date));
   const focusSessions = state.focus.sessions.filter((session) =>
     isWithinRange(session.date, range),
   );
@@ -549,8 +549,27 @@ function getAnalyticsData() {
   return {
     label: range.label,
     sleep: {
-      bedtime: sleepEntries.map((entry) => timeToNumber(entry.bedtime, true)),
-      wakeUp: sleepEntries.map((entry) => timeToNumber(entry.wakeUp)),
+      bedtime: sleepEntries
+        .filter((entry) => isValidTime(entry.bedtime))
+        .map((entry) => ({
+          date: entry.date,
+          label: formatChartDateLabel(entry.date),
+          value: timeToNumber(entry.bedtime, true),
+        })),
+      wakeUp: sleepEntries
+        .filter((entry) => isValidTime(entry.wakeUp))
+        .map((entry) => ({
+          date: entry.date,
+          label: formatChartDateLabel(entry.date),
+          value: timeToNumber(entry.wakeUp),
+        })),
+      duration: sleepEntries
+        .map((entry) => ({
+          date: entry.date,
+          label: formatChartDateLabel(entry.date),
+          value: getSleepDurationForDate(entry.date),
+        }))
+        .filter((entry) => entry.value !== null),
       averageDuration:
         averageSleep === null ? "Not enough data" : formatDuration(averageSleep),
     },
@@ -594,7 +613,7 @@ function getAnalyticsData() {
           ).toFixed(1)
         : null,
       values: moodEntries.map((entry) => entry.score),
-      labels: moodEntries.map((entry) => formatMoodXAxisLabel(entry.date)),
+      labels: moodEntries.map((entry) => formatChartDateLabel(entry.date)),
     },
     journal: {
       keywords: extractKeywords(journalEntries),
@@ -602,12 +621,18 @@ function getAnalyticsData() {
   };
 }
 
-function pointsForLine(values, width = 360, height = 160, padding = 18) {
+function pointsForLine(values, width = 360, height = 160, domain = null) {
   const chartValues = values.length ? values : [0];
-  const min = Math.min(...chartValues);
-  const max = Math.max(...chartValues);
+  let min = domain?.min ?? Math.min(...chartValues);
+  let max = domain?.max ?? Math.max(...chartValues);
+
+  if (!domain && min === max) {
+    min -= 1;
+    max += 1;
+  }
+
   const range = max - min || 1;
-  const chartLeft = 46;
+  const chartLeft = 58;
   const chartRight = width - 10;
   const chartTop = 18;
   const chartBottom = height - 34;
@@ -622,30 +647,8 @@ function pointsForLine(values, width = 360, height = 160, padding = 18) {
   });
 }
 
-function getChartXAxisLabels() {
-  if (state.analytics.range === "month") {
-    return ["1", "5", "10", "15", "20", "25", "30"];
-  }
-
-  if (state.analytics.range === "year") {
-    return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  }
-
-  if (state.analytics.range === "custom") {
-    return getRangeDates(getRangeBounds())
-      .filter((_, index, dates) => index === 0 || index === dates.length - 1)
-      .map((date) => new Date(`${date}T00:00:00`).getDate().toString());
-  }
-
-  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-}
-
-function formatMoodXAxisLabel(date) {
+function formatChartDateLabel(date) {
   const dateValue = new Date(`${date}T00:00:00`);
-
-  if (state.analytics.range === "week") {
-    return new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(dateValue);
-  }
 
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
@@ -653,10 +656,14 @@ function formatMoodXAxisLabel(date) {
   }).format(dateValue);
 }
 
-function getChartYTicks(values) {
+function getChartYTicks(values, domain = null) {
+  if (domain?.ticks) {
+    return domain.ticks;
+  }
+
   const chartValues = values.length ? values : [0];
-  const min = Math.min(...chartValues);
-  const max = Math.max(...chartValues);
+  const min = domain?.min ?? Math.min(...chartValues);
+  const max = domain?.max ?? Math.max(...chartValues);
 
   if (min === max) {
     return [max + 1, max, Math.max(0, max - 1)];
@@ -666,19 +673,38 @@ function getChartYTicks(values) {
   return [max, middle, min];
 }
 
-function formatChartTick(value) {
+function formatChartTick(value, type = "number") {
+  if (type === "time") {
+    return formatClock(value);
+  }
+
+  if (type === "duration") {
+    return formatDuration(Math.round(value));
+  }
+
+  if (type === "mood") {
+    return String(Math.round(value));
+  }
+
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-function LineChart({ values, labels = null, soft = false, accent = "" }) {
-  const points = pointsForLine(values);
+function LineChart({
+  values,
+  labels = [],
+  valueType = "number",
+  yDomain = null,
+  soft = false,
+  accent = "",
+}) {
+  const points = pointsForLine(values, 360, 160, yDomain);
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
-  const xLabels = labels || getChartXAxisLabels();
-  const yTicks = getChartYTicks(values);
+  const xLabels = labels;
+  const yTicks = getChartYTicks(values, yDomain);
   const yPositions = [18, 72, 126];
-  const xStart = 46;
+  const xStart = 58;
   const xEnd = 350;
 
   return `
@@ -686,8 +712,8 @@ function LineChart({ values, labels = null, soft = false, accent = "" }) {
       ${yPositions
         .map(
           (y, index) => `
-            <text class="chart-y-label" x="4" y="${y + 4}">${formatChartTick(yTicks[index])}</text>
-            <line class="chart-grid-line" x1="46" y1="${y}" x2="350" y2="${y}"></line>
+            <text class="chart-y-label" x="4" y="${y + 4}">${formatChartTick(yTicks[index], valueType)}</text>
+            <line class="chart-grid-line" x1="58" y1="${y}" x2="350" y2="${y}"></line>
           `,
         )
         .join("")}
@@ -709,18 +735,6 @@ function LineChart({ values, labels = null, soft = false, accent = "" }) {
         .join("")}
     </svg>
   `;
-}
-
-function getRangeDates(range) {
-  const dates = [];
-  let cursor = range.from;
-
-  while (cursor <= range.to && dates.length < 42) {
-    dates.push(cursor);
-    cursor = addDays(cursor, 1);
-  }
-
-  return dates;
 }
 
 function getFocusTotal(data) {
@@ -763,6 +777,22 @@ function ComparisonBar(label, value, max) {
       <div class="bar-track">
         <div class="bar-fill" style="width: ${width}%"></div>
       </div>
+    </div>
+  `;
+}
+
+function TrendChartBlock({ title, points, valueType = "number", soft = false, accent = "" }) {
+  const values = points.map((point) => point.value);
+  const labels = points.map((point) => point.label);
+
+  return `
+    <div class="chart-block">
+      <p class="chart-label">${title}</p>
+      ${
+        values.length
+          ? LineChart({ values, labels, valueType, soft, accent })
+          : `<p class="empty-state">No records yet.</p>`
+      }
     </div>
   `;
 }
@@ -1023,14 +1053,25 @@ function SleepAnalyticsCard() {
     title: "Sleep",
     children: `
       <div class="sleep-chart-stack">
-        <div class="chart-block">
-          <p class="chart-label">Bedtime Trend</p>
-          ${LineChart({ values: data.sleep.bedtime, accent: "sleep" })}
-        </div>
-        <div class="chart-block">
-          <p class="chart-label">Wake Up Trend</p>
-          ${LineChart({ values: data.sleep.wakeUp, soft: true, accent: "sleep" })}
-        </div>
+        ${TrendChartBlock({
+          title: "Bedtime Trend",
+          points: data.sleep.bedtime,
+          valueType: "time",
+          accent: "sleep",
+        })}
+        ${TrendChartBlock({
+          title: "Wake Up Trend",
+          points: data.sleep.wakeUp,
+          valueType: "time",
+          soft: true,
+          accent: "sleep",
+        })}
+        ${TrendChartBlock({
+          title: "Sleep Duration Trend",
+          points: data.sleep.duration,
+          valueType: "duration",
+          accent: "sleep",
+        })}
         <div class="average-metric">
           <div>
             <div class="metric-large">${data.sleep.averageDuration}</div>
@@ -1107,6 +1148,8 @@ function MoodAnalyticsCard() {
             ${LineChart({
               values: data.mood.values,
               labels: data.mood.labels,
+              valueType: "mood",
+              yDomain: { min: 1, max: 10, ticks: [10, 5, 1] },
               accent: "mood",
             })}
           `
